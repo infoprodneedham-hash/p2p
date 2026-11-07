@@ -123,7 +123,7 @@
       letter-spacing: 0.5px;
     }
 
-    /* Host Active Pairing Screen */
+    /* Host Active Pairing View */
     .host-live-box {
       display: none;
       background: #0d1117;
@@ -161,7 +161,7 @@
       border: 1px solid var(--border);
     }
 
-    /* Video Fullscreen Viewport */
+    /* Fullscreen Viewport */
     .viewport {
       display: none;
       position: fixed;
@@ -298,7 +298,7 @@
           <button class="btn-secondary" style="margin-bottom:10px;" onclick="copyHostLink()">📋 Copy Full Invite Link</button>
           <button class="btn-blue" onclick="openHostFullscreen()">🔍 View Fullscreen Cam</button>
 
-          <!-- Small live preview so host knows the camera is running -->
+          <!-- Local Thumbnail preview -->
           <video id="hostPreviewVideo" class="preview-thumb" autoplay playsinline muted></video>
         </div>
       </div>
@@ -311,7 +311,7 @@
         <label>Passcode</label>
         <input type="password" id="joinPasscode" value="mycam" placeholder="Enter passcode">
 
-        <button class="btn-blue" onclick="joinStream()">Connect to Camera</button>
+        <button class="btn-blue" id="btnJoin" onclick="joinStream()">Connect to Camera</button>
       </div>
     </div>
   </div>
@@ -370,6 +370,26 @@
       document.getElementById('btnModeViewer').className = mode === 'viewer' ? 'btn-blue' : 'btn-secondary';
     }
 
+    // Helper: Creates a dual audio+video dummy stream so WebRTC offers BOTH m=audio and m=video lines
+    function createDummyHandshakeStream() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 4;
+      canvas.height = 4;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, 4, 4);
+
+      // 1 FPS dummy video track to negotiate receiving video from the host
+      const dummyVideoTrack = canvas.captureStream(1).getVideoTracks()[0];
+
+      // Silent dummy audio track to negotiate receiving audio
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const dst = audioCtx.createMediaStreamDestination();
+      const dummyAudioTrack = dst.stream.getAudioTracks()[0];
+
+      return new MediaStream([dummyVideoTrack, dummyAudioTrack]);
+    }
+
     // --- HOST LOGIC ---
     async function startBroadcasting() {
       const passcode = document.getElementById('hostPasscode').value.trim();
@@ -393,7 +413,7 @@
         const previewEl = document.getElementById('hostPreviewVideo');
         previewEl.srcObject = localStream;
 
-        // Also assign to the main viewport video element
+        // Assign to the main viewport video element
         const fullVideo = document.getElementById('liveVideo');
         fullVideo.srcObject = localStream;
         fullVideo.muted = true;
@@ -447,7 +467,7 @@
         });
 
         peer.on('error', (err) => {
-          alert('Network/Signaling error: ' + err.type);
+          alert('Network error: ' + err.type);
           btnInit.disabled = false;
           btnInit.innerText = 'Start Camera & Broadcast';
         });
@@ -470,6 +490,10 @@
 
       if (!roomId) return alert('Please enter the 6-digit Broadcaster Room ID');
 
+      const btnJoin = document.getElementById('btnJoin');
+      btnJoin.disabled = true;
+      btnJoin.innerText = 'Connecting...';
+
       peer = new Peer({
         config: {
           iceServers: [
@@ -488,11 +512,10 @@
 
         authConn.on('data', (data) => {
           if (data.type === 'auth-success') {
-            // Establish media stream connection
-            const dummyCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const dst = dummyCtx.createMediaStreamDestination();
-
-            const call = peer.call(roomId, dst.stream);
+            // Initiate media call using BOTH dummy video and dummy audio tracks
+            // This ensures WebRTC generates an SDP offer with video receiving capability
+            const handshakeStream = createDummyHandshakeStream();
+            const call = peer.call(roomId, handshakeStream);
             activeCall = call;
 
             call.on('stream', (remoteStream) => {
@@ -515,6 +538,8 @@
 
           } else if (data.type === 'auth-failed') {
             alert("Passcode rejected: " + data.reason);
+            btnJoin.disabled = false;
+            btnJoin.innerText = 'Connect to Camera';
             peer.destroy();
           }
         });
@@ -522,6 +547,8 @@
 
       peer.on('error', (err) => {
         alert("Connection failed: " + err.type);
+        btnJoin.disabled = false;
+        btnJoin.innerText = 'Connect to Camera';
       });
     }
 
