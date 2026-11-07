@@ -19,6 +19,7 @@
       --primary: #238636;
       --primary-hover: #2ea043;
       --blue: #2f81f7;
+      --blue-hover: #388bfd;
       --danger: #da3633;
     }
 
@@ -58,7 +59,7 @@
       font-size: 1.5rem;
       font-weight: 700;
       text-align: center;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       color: #fff;
     }
 
@@ -66,7 +67,7 @@
       text-align: center;
       color: var(--muted);
       font-size: 0.88rem;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
 
     .btn-group {
@@ -92,6 +93,7 @@
     .btn-primary { background: var(--primary); color: #fff; width: 100%; }
     .btn-primary:active { background: var(--primary-hover); }
     .btn-blue { background: var(--blue); color: #fff; width: 100%; }
+    .btn-blue:active { background: var(--blue-hover); }
     .btn-secondary { background: #21262d; color: var(--text); border: 1px solid var(--border); width: 100%; }
     .btn-danger { background: var(--danger); color: #fff; }
 
@@ -121,7 +123,45 @@
       letter-spacing: 0.5px;
     }
 
-    /* Video Playback Screens */
+    /* Host Active Pairing Screen */
+    .host-live-box {
+      display: none;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+      text-align: center;
+    }
+
+    .room-badge {
+      font-size: 1.8rem;
+      font-weight: 800;
+      letter-spacing: 4px;
+      color: #58a6ff;
+      margin: 10px 0;
+      font-family: monospace;
+    }
+
+    #qrBox {
+      background: #fff;
+      padding: 12px;
+      border-radius: 10px;
+      display: inline-block;
+      margin: 12px auto;
+    }
+
+    .preview-thumb {
+      width: 100%;
+      height: 120px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #000;
+      margin-top: 12px;
+      border: 1px solid var(--border);
+    }
+
+    /* Video Fullscreen Viewport */
     .viewport {
       display: none;
       position: fixed;
@@ -205,14 +245,6 @@
       font-size: 1.2rem;
     }
 
-    #qrBox {
-      background: #fff;
-      padding: 12px;
-      border-radius: 12px;
-      display: inline-block;
-      margin: 16px auto;
-    }
-
     .unmute-alert {
       position: absolute;
       top: 70px;
@@ -233,11 +265,11 @@
 </head>
 <body>
 
-  <!-- Screen 1: Mode Selection / Setup -->
+  <!-- Screen 1: Mode Selection & Setup -->
   <div class="container" id="setupCard">
     <div class="card">
       <h1>CamLink P2P</h1>
-      <p class="subtitle">Direct Android-to-Android Camera Streaming</p>
+      <p class="subtitle">Direct Android Camera Stream</p>
 
       <div class="btn-group">
         <button class="btn-primary" id="btnModeHost" onclick="switchMode('host')">Host Camera</button>
@@ -246,27 +278,35 @@
 
       <!-- Host Configuration -->
       <div id="hostSection">
-        <label>Passcode Protection</label>
-        <input type="text" id="hostPasscode" value="mycam" placeholder="Set room passcode">
-        
-        <button class="btn-primary" onclick="startBroadcasting()">Start Camera & Broadcast</button>
+        <div id="hostConfigForm">
+          <label>Passcode Protection</label>
+          <input type="text" id="hostPasscode" value="mycam" placeholder="Set room passcode">
+          <button class="btn-primary" id="btnInitHost" onclick="startBroadcasting()">Start Camera & Broadcast</button>
+        </div>
 
-        <div id="hostShareArea" style="display:none; text-align: center; margin-top: 20px;">
+        <!-- Visible Pairing Box for Host -->
+        <div class="host-live-box" id="hostLiveBox">
+          <p style="font-size:0.8rem; color:var(--muted); text-transform:uppercase; font-weight:700;">Broadcaster Room ID</p>
+          <div class="room-badge" id="displayRoomId">------</div>
+
           <div id="qrBox"></div>
-          <p style="font-size: 0.8rem; color: var(--muted); margin-top: 6px;">
-            Scan with Viewer Android or share code:
+
+          <p style="font-size:0.82rem; color:var(--muted); margin-bottom:12px;">
+            Scan with Viewer Android or enter the 6-digit ID above.
           </p>
-          <div style="display:flex; gap:8px; margin-top:8px;">
-            <input type="text" id="shareRoomId" readonly style="margin:0; text-align:center; font-weight:700;">
-            <button class="btn-secondary" style="width:auto;" onclick="copyHostLink()">Copy</button>
-          </div>
+
+          <button class="btn-secondary" style="margin-bottom:10px;" onclick="copyHostLink()">📋 Copy Full Invite Link</button>
+          <button class="btn-blue" onclick="openHostFullscreen()">🔍 View Fullscreen Cam</button>
+
+          <!-- Small live preview so host knows the camera is running -->
+          <video id="hostPreviewVideo" class="preview-thumb" autoplay playsinline muted></video>
         </div>
       </div>
 
       <!-- Viewer Configuration -->
       <div id="viewerSection" style="display: none;">
         <label>Broadcaster Room ID</label>
-        <input type="text" id="targetRoomId" placeholder="Paste 6-digit ID or open scan link">
+        <input type="text" id="targetRoomId" placeholder="Enter 6-digit ID (e.g. 542198)">
 
         <label>Passcode</label>
         <input type="password" id="joinPasscode" value="mycam" placeholder="Enter passcode">
@@ -276,7 +316,7 @@
     </div>
   </div>
 
-  <!-- Screen 2: Fullscreen Live Video Stream -->
+  <!-- Screen 2: Fullscreen Stream Viewport -->
   <div class="viewport" id="viewport">
     <div class="floating-bar">
       <div class="status-pill">
@@ -286,15 +326,15 @@
       <button class="btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="stopAll()">Exit</button>
     </div>
 
-    <!-- Receiver Unmute Banner for Android Chrome Autoplay policy -->
+    <!-- Receiver Unmute Banner -->
     <div class="unmute-alert" id="unmuteBanner" onclick="unmuteAudio()">
       🔊 Tap to Enable Audio
     </div>
 
-    <!-- Active Stream Video Element -->
+    <!-- Active Video -->
     <video id="liveVideo" autoplay playsinline webkit-playsinline></video>
 
-    <!-- Bottom Controls -->
+    <!-- Controls -->
     <div class="controls-bottom">
       <button class="circle-btn" id="btnFlipCam" title="Switch Camera" onclick="toggleFacingCamera()">🔄</button>
       <button class="circle-btn" id="btnSnap" title="Take Snapshot" onclick="captureSnapshot()">📸</button>
@@ -308,11 +348,10 @@
     let peer = null;
     let localStream = null;
     let currentRole = 'host';
-    let currentFacingMode = 'environment'; // Default to rear camera on phones
+    let currentFacingMode = 'environment';
     let activeCall = null;
-    let authDataConnection = null;
+    let activeRoomId = '';
 
-    // Parse URL query params (if viewer joins via QR code link)
     window.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const joinId = params.get('join');
@@ -336,8 +375,11 @@
       const passcode = document.getElementById('hostPasscode').value.trim();
       if (!passcode) return alert('Please set a passcode');
 
+      const btnInit = document.getElementById('btnInitHost');
+      btnInit.disabled = true;
+      btnInit.innerText = 'Starting Camera...';
+
       try {
-        // Request Android camera & audio with mobile-friendly constraints
         localStream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: currentFacingMode },
@@ -347,13 +389,18 @@
           audio: true
         });
 
-        const videoEl = document.getElementById('liveVideo');
-        videoEl.srcObject = localStream;
-        videoEl.muted = true; // Avoid feedback on host phone
-        showViewport("Host Camera (Ready)");
+        // Set local thumbnail preview on the setup card
+        const previewEl = document.getElementById('hostPreviewVideo');
+        previewEl.srcObject = localStream;
 
-        // Initialize PeerJS
-        peer = new Peer(generateRoomId(), {
+        // Also assign to the main viewport video element
+        const fullVideo = document.getElementById('liveVideo');
+        fullVideo.srcObject = localStream;
+        fullVideo.muted = true;
+
+        activeRoomId = generateRoomId();
+
+        peer = new Peer(activeRoomId, {
           config: {
             iceServers: [
               { urls: 'stun:stun.l.google.com:19302' },
@@ -363,22 +410,23 @@
         });
 
         peer.on('open', (id) => {
-          document.getElementById('hostShareArea').style.display = 'block';
-          document.getElementById('shareRoomId').value = id;
+          document.getElementById('hostConfigForm').style.display = 'none';
+          document.getElementById('hostLiveBox').style.display = 'block';
+          document.getElementById('displayRoomId').innerText = id;
 
-          // Render QR Code for viewer
+          // Render QR Code
           const shareUrl = `${window.location.origin}${window.location.pathname}?join=${id}`;
           const qrBox = document.getElementById('qrBox');
           qrBox.innerHTML = '';
           new QRCode(qrBox, {
             text: shareUrl,
-            width: 150,
-            height: 150,
+            width: 160,
+            height: 160,
             correctLevel: QRCode.CorrectLevel.M
           });
         });
 
-        // 1. Listen for incoming viewer authorization requests
+        // Authorize viewers before answering
         peer.on('connection', (conn) => {
           conn.on('data', (data) => {
             if (data.type === 'auth') {
@@ -391,16 +439,28 @@
           });
         });
 
-        // 2. Answer incoming media call once authenticated
+        // Answer incoming media call with camera stream
         peer.on('call', (call) => {
           activeCall = call;
           call.answer(localStream);
           document.getElementById('statusText').innerText = "Streaming to Viewer";
         });
 
+        peer.on('error', (err) => {
+          alert('Network/Signaling error: ' + err.type);
+          btnInit.disabled = false;
+          btnInit.innerText = 'Start Camera & Broadcast';
+        });
+
       } catch (err) {
-        alert("Camera access denied or failed: " + err.message);
+        alert("Camera permission denied: " + err.message);
+        btnInit.disabled = false;
+        btnInit.innerText = 'Start Camera & Broadcast';
       }
+    }
+
+    function openHostFullscreen() {
+      showViewport("Host Camera (Active)");
     }
 
     // --- VIEWER LOGIC ---
@@ -408,9 +468,8 @@
       const roomId = document.getElementById('targetRoomId').value.trim();
       const passcode = document.getElementById('joinPasscode').value.trim();
 
-      if (!roomId) return alert('Please enter Broadcaster Room ID');
+      if (!roomId) return alert('Please enter the 6-digit Broadcaster Room ID');
 
-      // Initialize Viewer Peer
       peer = new Peer({
         config: {
           iceServers: [
@@ -421,41 +480,36 @@
       });
 
       peer.on('open', () => {
-        // Authenticate via Data Connection first
-        authDataConnection = peer.connect(roomId);
+        const authConn = peer.connect(roomId);
 
-        authDataConnection.on('open', () => {
-          authDataConnection.send({ type: 'auth', passcode: passcode });
+        authConn.on('open', () => {
+          authConn.send({ type: 'auth', passcode: passcode });
         });
 
-        authDataConnection.on('data', (data) => {
+        authConn.on('data', (data) => {
           if (data.type === 'auth-success') {
-            // Initiate media call to receive stream
-            // Create dummy audio track to satisfy WebRTC answer handshake from receiver
-            const dummyAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const dst = dummyAudioCtx.createMediaStreamDestination();
-            
+            // Establish media stream connection
+            const dummyCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const dst = dummyCtx.createMediaStreamDestination();
+
             const call = peer.call(roomId, dst.stream);
             activeCall = call;
 
             call.on('stream', (remoteStream) => {
               const videoEl = document.getElementById('liveVideo');
               videoEl.srcObject = remoteStream;
-              
-              // Android Chrome policy: Start muted to ensure instant visual decoding
-              videoEl.muted = true;
+              videoEl.muted = true; // Required by Android Chrome to enable instant visual render
+
               videoEl.play().then(() => {
                 showViewport("Connected - Live Feed");
-                // Reveal Unmute button for audio
                 document.getElementById('unmuteBanner').style.display = 'block';
-              }).catch(err => {
-                console.warn("Autoplay block:", err);
+              }).catch(() => {
                 showViewport("Tap Screen to Play");
               });
             });
 
             call.on('close', () => {
-              alert("Broadcaster ended the stream.");
+              alert("Stream has been closed by the broadcaster.");
               stopAll();
             });
 
@@ -467,12 +521,11 @@
       });
 
       peer.on('error', (err) => {
-        alert("Connection error: " + err.type);
+        alert("Connection failed: " + err.type);
       });
     }
 
-    // --- UTILITIES & HARDWARE CONTROLS ---
-
+    // --- CONTROLS & UTILITIES ---
     function unmuteAudio() {
       const videoEl = document.getElementById('liveVideo');
       videoEl.muted = false;
@@ -495,10 +548,8 @@
 
     async function toggleFacingCamera() {
       if (currentRole !== 'host' || !localStream) return;
-      
+
       currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-      
-      // Stop old video track
       localStream.getVideoTracks().forEach(t => t.stop());
 
       try {
@@ -512,8 +563,8 @@
         localStream.addTrack(newVideoTrack);
 
         document.getElementById('liveVideo').srcObject = localStream;
+        document.getElementById('hostPreviewVideo').srcObject = localStream;
 
-        // Replace track on the fly for active peer connection
         if (activeCall && activeCall.peerConnection) {
           const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
           if (sender) sender.replaceTrack(newVideoTrack);
@@ -526,7 +577,7 @@
     function captureSnapshot() {
       const videoEl = document.getElementById('liveVideo');
       const canvas = document.getElementById('snapshotCanvas');
-      if (!videoEl.videoWidth) return alert("Stream not rendering visual frames yet.");
+      if (!videoEl.videoWidth) return alert("Visual feed not ready yet.");
 
       canvas.width = videoEl.videoWidth;
       canvas.height = videoEl.videoHeight;
@@ -543,19 +594,17 @@
       document.getElementById('setupCard').style.display = 'none';
       document.getElementById('viewport').style.display = 'flex';
       document.getElementById('statusText').innerText = status;
-      
-      // Hide camera flip button on viewer device
       document.getElementById('btnFlipCam').style.display = currentRole === 'host' ? 'flex' : 'none';
     }
 
     function stopAll() {
       if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach(t => t.stop());
       }
       if (peer) {
         peer.destroy();
       }
-      window.location.href = window.location.pathname; // Clean reset
+      window.location.href = window.location.pathname;
     }
 
     function generateRoomId() {
@@ -563,10 +612,9 @@
     }
 
     function copyHostLink() {
-      const code = document.getElementById('shareRoomId').value;
-      const fullUrl = `${window.location.origin}${window.location.pathname}?join=${code}`;
-      navigator.clipboard.writeText(fullUrl).then(() => {
-        alert("Viewer invite link copied to clipboard!");
+      const shareUrl = `${window.location.origin}${window.location.pathname}?join=${activeRoomId}`;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        alert("Invite link copied!");
       });
     }
   </script>
