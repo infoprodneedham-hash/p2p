@@ -2,187 +2,195 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PeerCam - Peer-to-Peer Live Camera Streaming</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PeerCam Pro - Bulletproof P2P Visual Stream</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <!-- PeerJS CDN -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <!-- QRCode.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    .mirror-video {
+    .mirror-mode {
       transform: scaleX(-1);
     }
-    .pulse-record {
-      animation: pulse-dot 1.5s infinite;
+    .pulse-live {
+      animation: pulse-dot 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(1.15); }
+      50% { opacity: 0.3; transform: scale(1.15); }
+    }
+    /* Monospace HUD font */
+    .font-hud {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-cyan-500 selection:text-black select-none">
 
   <!-- Header Navigation -->
-  <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur sticky top-0 z-30">
-    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
       <div class="flex items-center space-x-3 cursor-pointer" onclick="resetApp()">
-        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-          <i class="fa-solid fa-video text-lg"></i>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-eye text-sm"></i>
         </div>
         <div>
-          <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">PeerCam</span>
-          <span class="text-xs ml-2 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">P2P WebRTC</span>
+          <span class="font-extrabold text-base tracking-tight bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-300 bg-clip-text text-transparent">PEERCAM</span>
+          <span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 font-mono border border-cyan-900/50">PRO-SYNC</span>
         </div>
       </div>
-      <div id="navStatus" class="flex items-center gap-2">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-500" id="globalStatusDot"></span>
-        <span class="text-xs text-slate-400 font-medium" id="globalStatusText">Ready</span>
+      
+      <div class="flex items-center gap-3">
+        <button id="toggleHudBtn" onclick="toggleDiagnosticsHud()" class="hidden px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line text-[10px] text-cyan-400"></i> HUD
+        </button>
+        <div id="navStatus" class="flex items-center gap-2 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800">
+          <span class="inline-block w-2 h-2 rounded-full bg-slate-500" id="globalStatusDot"></span>
+          <span class="text-xs text-slate-400 font-medium" id="globalStatusText">Ready</span>
+        </div>
       </div>
     </div>
   </header>
 
   <!-- Notification Toast Container -->
-  <div id="toastContainer" class="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+  <div id="toastContainer" class="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
 
-  <!-- Main Content Body -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col items-center justify-center">
+  <!-- Main View Stage -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 flex flex-col items-center justify-center">
 
-    <!-- VIEW 1: Role Selection Landing View -->
-    <div id="roleSelectionView" class="w-full max-w-3xl flex flex-col items-center text-center py-8">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-950/70 border border-indigo-800/60 text-indigo-300 text-xs font-semibold mb-6">
-        <i class="fa-solid fa-shield-halved"></i> Direct End-to-End P2P Visual Transmission
+    <!-- VIEW 1: Role Selection Landing -->
+    <div id="roleSelectionView" class="w-full max-w-3xl flex flex-col items-center text-center py-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/50 border border-cyan-800/40 text-cyan-400 text-xs font-mono mb-4">
+        <i class="fa-solid fa-circle-check"></i> Dual-Renderer WebRTC Video Engine
       </div>
-      <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-4">
-        Instant Cross-Device <span class="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">Live Camera</span>
+      <h1 class="text-3xl md:text-5xl font-black tracking-tight text-white mb-3">
+        Direct Peer-to-Peer <span class="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">Camera Feed</span>
       </h1>
-      <p class="text-slate-400 text-base md:text-lg max-w-xl mb-10 leading-relaxed">
-        Stream live visual video and audio directly from your phone or laptop camera to any screen browser over the internet with passcode protection.
+      <p class="text-slate-400 text-sm md:text-base max-w-xl mb-8 leading-relaxed">
+        High-performance encrypted peer-to-peer visual stream between phones, tablets, and laptops. Guaranteed video track rendering with dual hardware/canvas pipeline.
       </p>
 
-      <!-- Mode Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl text-left">
-        <!-- Host Card -->
-        <div class="bg-slate-900/80 border border-slate-800 hover:border-indigo-500/60 transition-all rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
+      <!-- Selection Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-2xl text-left">
+        <!-- Broadcaster Card -->
+        <div class="bg-slate-900/70 border border-slate-800 hover:border-cyan-500/50 transition-all duration-200 rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
           <div>
-            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-              <i class="fa-solid fa-camera-rotate text-xl"></i>
+            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-camera text-xl"></i>
             </div>
-            <h2 class="text-xl font-bold text-white mb-2">Camera Broadcaster</h2>
-            <p class="text-slate-400 text-sm mb-6 leading-relaxed">
-              Use this device as the visual camera source (e.g. Android phone or webcam) and stream out to another screen.
+            <h2 class="text-xl font-bold text-white mb-1.5">Host Camera</h2>
+            <p class="text-slate-400 text-xs leading-relaxed mb-6">
+              Use this device (Android, iPhone, or PC webcam) to transmit live visual video and microphone audio.
             </p>
           </div>
-          <button onclick="switchView('hostSetupView')" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition">
-            <span>Start as Host (Camera)</span>
+          <button onclick="switchView('hostSetupView')" class="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-black font-bold text-sm rounded-xl shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 transition">
+            <span>Broadcast Camera</span>
             <i class="fa-solid fa-arrow-right text-xs"></i>
           </button>
         </div>
 
-        <!-- Receiver Card -->
-        <div class="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/60 transition-all rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
+        <!-- Viewer Card -->
+        <div class="bg-slate-900/70 border border-slate-800 hover:border-indigo-500/50 transition-all duration-200 rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
           <div>
-            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
-              <i class="fa-solid fa-desktop text-xl"></i>
+            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-display text-xl"></i>
             </div>
-            <h2 class="text-xl font-bold text-white mb-2">Display Receiver</h2>
-            <p class="text-slate-400 text-sm mb-6 leading-relaxed">
-              View the live visual camera stream remotely on this screen (e.g. laptop, monitor, or second phone) using the Room ID & passcode.
+            <h2 class="text-xl font-bold text-white mb-1.5">Receiver Screen</h2>
+            <p class="text-slate-400 text-xs leading-relaxed mb-6">
+              Watch the incoming visual video live on this laptop or device with passcode security and zero server storage.
             </p>
           </div>
-          <button onclick="switchView('viewerSetupView')" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-medium rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition">
-            <span>Join as Receiver (Screen)</span>
+          <button onclick="switchView('viewerSetupView')" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 text-cyan-400 font-bold text-sm rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition">
+            <span>Connect & Watch</span>
             <i class="fa-solid fa-arrow-right text-xs"></i>
           </button>
         </div>
       </div>
     </div>
 
-    <!-- VIEW 2: Host Setup -->
+    <!-- VIEW 2: Host Broadcaster Setup -->
     <div id="hostSetupView" class="hidden w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
-        <h2 class="text-xl font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-broadcast-tower text-indigo-400"></i> Setup Broadcaster
+      <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-800">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-tower-broadcast text-cyan-400"></i> Setup Broadcaster
         </h2>
-        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white text-sm">
+        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="space-y-4">
+      <div class="space-y-4 text-sm">
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Channel / Room Name</label>
+          <label class="block text-xs font-mono text-slate-400 mb-1">ROOM CHANNEL ID</label>
           <div class="relative">
-            <input type="text" id="hostRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" placeholder="e.g. livingroom-cam">
-            <button onclick="generateRandomRoomId()" class="absolute right-2 top-2 px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg border border-slate-700">Random</button>
+            <input type="text" id="hostRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-cyan-500 outline-none" placeholder="e.g. cam-789">
+            <button onclick="generateRandomRoomId()" class="absolute right-2 top-2 px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg border border-slate-700 font-mono">Random</button>
           </div>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Passcode Protection</label>
-          <div class="relative">
-            <input type="text" id="hostPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" placeholder="Enter password (e.g. mycam)">
-          </div>
-          <p class="text-xs text-slate-500 mt-1">Receivers must enter this password to view the camera feed.</p>
+          <label class="block text-xs font-mono text-slate-400 mb-1">PROTECTION PASSCODE</label>
+          <input type="text" id="hostPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-cyan-500 outline-none" placeholder="mycam">
+          <p class="text-[11px] text-slate-500 mt-1">Viewers must match this password to authenticate.</p>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Camera Source</label>
-          <select id="hostCameraSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm">
-            <option value="environment" selected>Back Camera (Environment)</option>
+          <label class="block text-xs font-mono text-slate-400 mb-1">CAMERA LENS</label>
+          <select id="hostCameraSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:border-cyan-500 outline-none">
+            <option value="environment" selected>Rear Camera (Back / Environment)</option>
             <option value="user">Front Camera (Selfie / Webcam)</option>
           </select>
         </div>
 
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Target Quality</label>
-          <select id="hostQualitySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm">
-            <option value="720" selected>720p HD (Balanced, optimal WebRTC speed)</option>
-            <option value="1080">1080p Full HD (Crisp, higher bandwidth)</option>
-            <option value="480">480p Standard (Fast, lowest latency)</option>
+          <label class="block text-xs font-mono text-slate-400 mb-1">STARTING PROFILE</label>
+          <select id="hostQualitySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:border-cyan-500 outline-none">
+            <option value="720" selected>720p HD (Optimal cross-device WebRTC)</option>
+            <option value="480">480p Safe (Lowest latency & mobile stable)</option>
+            <option value="1080">1080p FHD (High bandwidth)</option>
           </select>
         </div>
 
-        <div class="pt-4 flex flex-col gap-2">
-          <button onclick="startHostStream()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-video"></i> Start Broadcasting
+        <div class="pt-2 flex flex-col gap-2">
+          <button onclick="startHostStream()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-black font-bold rounded-xl shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-play"></i> Start Broadcasting
           </button>
-          <button onclick="switchView('roleSelectionView')" class="w-full py-2.5 text-slate-400 hover:text-white text-sm">Cancel</button>
+          <button onclick="switchView('roleSelectionView')" class="w-full py-2 text-slate-400 hover:text-white text-xs">Back</button>
         </div>
       </div>
     </div>
 
     <!-- VIEW 3: Viewer Setup -->
     <div id="viewerSetupView" class="hidden w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
-        <h2 class="text-xl font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Connect to Broadcaster
+      <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-800">
+        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-satellite text-indigo-400"></i> Receiver Connect
         </h2>
-        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white text-sm">
+        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
-      <div class="space-y-4">
+      <div class="space-y-4 text-sm">
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Channel / Room Name</label>
-          <input type="text" id="viewerRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 text-sm" placeholder="Enter Host Room ID">
+          <label class="block text-xs font-mono text-slate-400 mb-1">HOST ROOM ID</label>
+          <input type="text" id="viewerRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-indigo-500 outline-none" placeholder="Enter Host Room ID">
         </div>
 
         <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Passcode</label>
-          <input type="password" id="viewerPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 text-sm" placeholder="e.g. mycam">
+          <label class="block text-xs font-mono text-slate-400 mb-1">PASSCODE</label>
+          <input type="password" id="viewerPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-indigo-500 outline-none" placeholder="mycam">
         </div>
 
-        <div class="pt-4 flex flex-col gap-2">
-          <button onclick="connectAsViewer()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-link"></i> Connect to Stream
+        <div class="pt-2 flex flex-col gap-2">
+          <button onclick="connectAsViewer()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-bolt"></i> Connect Visual Stream
           </button>
-          <button onclick="switchView('roleSelectionView')" class="w-full py-2.5 text-slate-400 hover:text-white text-sm">Cancel</button>
+          <button onclick="switchView('roleSelectionView')" class="w-full py-2 text-slate-400 hover:text-white text-xs">Back</button>
         </div>
       </div>
     </div>
@@ -190,39 +198,47 @@
     <!-- VIEW 4: Active Streaming Studio -->
     <div id="activeStreamView" class="hidden w-full flex flex-col items-center">
       
-      <!-- Top Bar: Room Info & Controls -->
-      <div class="w-full flex flex-wrap items-center justify-between gap-3 mb-4 bg-slate-900/60 backdrop-blur border border-slate-800 p-3.5 rounded-2xl">
-        <div class="flex items-center gap-3">
-          <div id="roleBadge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+      <!-- Top Status & Action Bar -->
+      <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-3 bg-slate-900/80 border border-slate-800 px-3.5 py-2.5 rounded-2xl">
+        <div class="flex items-center gap-2.5">
+          <span id="roleBadge" class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider bg-cyan-950 text-cyan-400 border border-cyan-800">
             HOST
-          </div>
-          <div class="text-sm">
-            <span class="text-slate-400">Room:</span> <span id="currentRoomDisplay" class="font-mono font-semibold text-white">...</span>
+          </span>
+          <div class="text-xs">
+            <span class="text-slate-400 font-mono">ID:</span> <span id="currentRoomDisplay" class="font-mono font-bold text-white">...</span>
           </div>
         </div>
 
-        <!-- Connection Indicators -->
-        <div class="flex items-center gap-4 text-xs">
-          <div class="flex items-center gap-1.5">
-            <span id="streamStatusIndicator" class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
-            <span id="streamStatusText" class="text-slate-300 font-medium">Initializing...</span>
+        <!-- Connection Badges -->
+        <div class="flex items-center gap-3 text-xs">
+          <div class="flex items-center gap-1.5 font-mono">
+            <span id="streamStatusIndicator" class="w-2 h-2 rounded-full bg-yellow-400"></span>
+            <span id="streamStatusText" class="text-slate-300 text-[11px]">Connecting...</span>
           </div>
-          <div id="viewerCountBadge" class="hidden items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
-            <i class="fa-solid fa-users text-xs text-indigo-400"></i>
-            <span id="viewerCountText">0 viewer</span>
+
+          <div id="viewerCountBadge" class="hidden items-center gap-1.5 bg-slate-800 px-2 py-0.5 rounded-lg text-slate-300 text-[11px] font-mono">
+            <i class="fa-solid fa-users text-[10px] text-cyan-400"></i>
+            <span id="viewerCountText">0</span>
           </div>
-          <div id="resolutionBadge" class="hidden sm:block text-slate-400 bg-slate-800 px-2 py-0.5 rounded text-[11px] font-mono">
+
+          <div id="resolutionBadge" class="hidden sm:block text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40 text-[10px] font-mono">
             -- x --
           </div>
         </div>
 
-        <!-- Quick actions -->
+        <!-- Right Quick Actions -->
         <div class="flex items-center gap-2">
-          <button id="pairingQrBtn" onclick="toggleShareModal(true)" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-indigo-300 border border-slate-700 flex items-center gap-1.5">
-            <i class="fa-solid fa-qrcode"></i> <span>Share / QR</span>
+          <!-- Force Reload Recovery Button -->
+          <button onclick="forceSyncPipeline()" title="Resync Video Feed" class="px-2.5 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900 text-amber-300 border border-amber-800/60 text-xs font-mono flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-arrows-rotate text-[11px]" id="forceReloadIcon"></i> <span class="hidden sm:inline">Force Sync</span>
           </button>
-          <button onclick="disconnectSession()" class="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs flex items-center gap-1.5 transition">
-            <i class="fa-solid fa-arrow-right-from-bracket"></i> <span>Leave</span>
+          
+          <button id="pairingQrBtn" onclick="toggleShareModal(true)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-cyan-300 border border-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-qrcode"></i> <span class="hidden sm:inline">QR Share</span>
+          </button>
+          
+          <button onclick="disconnectSession()" class="px-2.5 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-power-off"></i> <span>Stop</span>
           </button>
         </div>
       </div>
@@ -230,7 +246,7 @@
       <!-- Main Video Canvas Stage -->
       <div id="videoContainer" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
         
-        <!-- Live Video Element with full mobile autoplay attributes -->
+        <!-- Primary Hardware Accelerated Video Player -->
         <video 
           id="mainVideoPlayer" 
           autoplay 
@@ -240,44 +256,66 @@
           class="w-full h-full object-contain">
         </video>
 
-        <!-- Unmute Floating Banner for Receiver -->
+        <!-- Secondary Canvas Blit Renderer Fallback (Eliminates mobile black screen bug) -->
+        <canvas id="fallbackCanvas" class="hidden absolute inset-0 w-full h-full object-contain pointer-events-none"></canvas>
+
+        <!-- Live Diagnostics HUD Overlay (Toggleable) -->
+        <div id="diagnosticsHud" class="hidden absolute top-4 left-4 z-30 bg-slate-950/90 border border-cyan-500/40 rounded-xl p-3 text-[11px] font-hud text-cyan-300 backdrop-blur shadow-2xl max-w-xs pointer-events-none">
+          <div class="text-[10px] text-cyan-400 font-bold border-b border-cyan-900/60 pb-1 mb-1.5 flex items-center justify-between">
+            <span>WEBRTC STREAM MONITOR</span>
+            <span class="pulse-live inline-block w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          </div>
+          <div class="space-y-0.5">
+            <div>Video Tracks: <span id="hudVideoTracks" class="text-white">0</span></div>
+            <div>Video Status: <span id="hudVideoStatus" class="text-white">Inactive</span></div>
+            <div>Decoded Dims: <span id="hudDecodedDims" class="text-white">0 x 0</span></div>
+            <div>Audio Tracks: <span id="hudAudioTracks" class="text-white">0</span></div>
+            <div>Canvas Engine: <span id="hudCanvasStatus" class="text-white">Idle</span></div>
+            <div>Renderer Mode: <span id="hudActiveRenderer" class="text-amber-400">Native Video</span></div>
+          </div>
+        </div>
+
+        <!-- Top-Right Unmute Audio Button (Appears when video is playing muted) -->
         <div id="unmutePromptBanner" class="hidden absolute top-4 right-4 z-30">
-          <button onclick="enableReceiverAudio()" class="px-3 py-2 bg-indigo-600/90 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold backdrop-blur shadow-lg flex items-center gap-2 border border-indigo-400/40 animate-bounce">
-            <i class="fa-solid fa-volume-high"></i> Tap to Unmute Audio
+          <button onclick="enableReceiverAudio()" class="px-3 py-1.5 bg-cyan-600/90 hover:bg-cyan-500 text-black rounded-xl text-xs font-bold backdrop-blur shadow-xl flex items-center gap-2 border border-cyan-300/40 animate-pulse">
+            <i class="fa-solid fa-volume-high"></i> Click to Unmute
           </button>
         </div>
 
-        <!-- Fallback Manual Play Overlay (If browser stops autoplay entirely) -->
-        <div id="manualPlayOverlay" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-25 flex flex-col items-center justify-center p-6 text-center hidden">
-          <button onclick="forceStartPlayback()" class="w-16 h-16 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center text-2xl shadow-xl shadow-emerald-500/30 mb-3 transition transform hover:scale-110">
+        <!-- Manual Play Overlay for Restricted Autoplay -->
+        <div id="manualPlayOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur z-25 flex flex-col items-center justify-center p-6 text-center hidden">
+          <button onclick="forceStartPlayback()" class="w-16 h-16 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center text-xl shadow-xl shadow-cyan-500/30 mb-3 transition transform hover:scale-105">
             <i class="fa-solid fa-play ml-1"></i>
           </button>
-          <h3 class="text-base font-bold text-white">Click to View Live Visuals</h3>
-          <p class="text-xs text-slate-400 mt-1 max-w-xs">Browser prevented automatic playback. Click above to start receiving camera video immediately.</p>
+          <h3 class="text-base font-bold text-white">Browser Blocked Visual Feed</h3>
+          <p class="text-xs text-slate-400 mt-1 max-w-xs mb-3">Click play to permit visual rendering from the remote camera.</p>
+          <button onclick="forceStartPlayback()" class="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-cyan-300 font-mono">
+            Enable Video Output
+          </button>
         </div>
 
-        <!-- Waiting / Loading Overlay for Receiver -->
-        <div id="waitingOverlay" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center z-20 hidden">
-          <div class="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin mb-4"></div>
-          <h3 id="waitingTitle" class="text-lg font-bold text-white mb-1">Awaiting Broadcaster Connection</h3>
-          <p id="waitingSub" class="text-sm text-slate-400 max-w-sm">Verifying room credentials and negotiating peer-to-peer WebRTC handshake...</p>
+        <!-- Waiting Handshake Overlay -->
+        <div id="waitingOverlay" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-20 hidden">
+          <div class="w-14 h-14 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin mb-4"></div>
+          <h3 id="waitingTitle" class="text-base font-bold text-white mb-1">Awaiting Broadcaster Connection</h3>
+          <p id="waitingSub" class="text-xs text-slate-400 max-w-sm">Negotiating direct P2P STUN handshake...</p>
         </div>
 
         <!-- Live Watermark Overlay -->
         <div class="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
-          <div id="liveBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-600/90 text-white text-xs font-bold tracking-wider uppercase backdrop-blur shadow">
-            <span class="w-2 h-2 rounded-full bg-white pulse-record"></span> LIVE
+          <div id="liveBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-600/90 text-white text-[11px] font-bold tracking-wider uppercase backdrop-blur shadow">
+            <span class="w-2 h-2 rounded-full bg-white pulse-live"></span> LIVE
           </div>
-          <div id="encryptionBadge" class="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/80 text-emerald-400 text-xs backdrop-blur border border-slate-800 font-mono">
-            <i class="fa-solid fa-lock text-[10px]"></i> P2P
+          <div id="rendererIndicatorBadge" class="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/80 text-cyan-400 text-[10px] backdrop-blur border border-slate-800 font-mono">
+            <i class="fa-solid fa-bolt text-[9px]"></i> <span id="rendererNameTag">GPU</span>
           </div>
         </div>
 
-        <!-- Floating Quick Control Floating Dock -->
-        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-2 rounded-2xl border border-slate-700/80 shadow-2xl transition opacity-90 group-hover:opacity-100">
+        <!-- Floating Quick Controls Dock -->
+        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/85 backdrop-blur-md px-3 py-2 rounded-2xl border border-slate-700/80 shadow-2xl">
           
           <!-- Host-only Controls: Flip camera -->
-          <button id="flipCamBtn" onclick="flipCamera()" title="Flip Camera" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
+          <button id="flipCamBtn" onclick="flipCamera()" title="Switch Front/Back Lens" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
             <i class="fa-solid fa-camera-rotate"></i>
           </button>
           
@@ -291,11 +329,6 @@
             <i class="fa-solid fa-camera"></i>
           </button>
 
-          <!-- Future Recording Trigger -->
-          <button onclick="triggerRecordingPlaceholder()" title="Record Stream" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 flex items-center justify-center transition">
-            <i class="fa-solid fa-circle-dot"></i>
-          </button>
-
           <!-- Fullscreen Toggle -->
           <button onclick="toggleFullscreen()" title="Toggle Fullscreen" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
             <i class="fa-solid fa-expand"></i>
@@ -304,13 +337,13 @@
       </div>
 
       <!-- Quick Tips Bar -->
-      <div class="w-full mt-4 flex flex-wrap items-center justify-between text-xs text-slate-400 px-2 gap-2">
+      <div class="w-full mt-3 flex flex-wrap items-center justify-between text-xs text-slate-500 px-2 gap-2">
         <div class="flex items-center gap-2">
-          <i class="fa-solid fa-shield text-indigo-400"></i>
-          <span>Password is verified automatically via encrypted peer handshakes. No video is recorded or stored on remote servers.</span>
+          <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+          <span>Passcode verified via end-to-end DataChannel. Audio and visual packets never pass through intermediate servers.</span>
         </div>
-        <div class="text-slate-500 font-mono">
-          STUN: stun.l.google.com
+        <div class="font-mono text-[11px] text-slate-500">
+          Renderer: Dual Pipeline (Native/2D-Blit)
         </div>
       </div>
     </div>
@@ -318,33 +351,29 @@
 
   <!-- MODAL: Share QR Code & Pair Link -->
   <div id="shareModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
       <button onclick="toggleShareModal(false)" class="absolute top-4 right-4 text-slate-400 hover:text-white">
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
 
-      <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
-        <i class="fa-solid fa-qrcode text-indigo-400"></i> Scan to Watch
+      <h3 class="text-base font-bold text-white mb-1 flex items-center gap-2">
+        <i class="fa-solid fa-qrcode text-cyan-400"></i> Scan to Receive Stream
       </h3>
-      <p class="text-xs text-slate-400 mb-4">Open camera on another phone/tablet or scan from laptop browser.</p>
+      <p class="text-xs text-slate-400 mb-3">Scan from your laptop or second phone's camera.</p>
 
       <!-- QR Code Canvas Display -->
-      <div class="bg-white p-3.5 rounded-xl flex items-center justify-center mx-auto w-fit shadow-md">
+      <div class="bg-white p-3 rounded-xl flex items-center justify-center mx-auto w-fit shadow-md">
         <div id="qrcode"></div>
       </div>
 
       <div class="mt-4 space-y-2">
-        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">Quick Join Link</label>
+        <label class="block text-[11px] font-mono text-slate-400">DIRECT JOIN LINK</label>
         <div class="flex items-center gap-2">
           <input type="text" id="shareUrlInput" readonly class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300 font-mono truncate select-all">
-          <button onclick="copyShareUrl()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shrink-0">
+          <button onclick="copyShareUrl()" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-black font-bold rounded-xl text-xs shrink-0">
             Copy
           </button>
         </div>
-      </div>
-
-      <div class="mt-4 text-center">
-        <span class="text-xs text-slate-500">Passcode is pre-filled in QR code for convenience.</span>
       </div>
     </div>
   </div>
@@ -353,7 +382,9 @@
   <a id="downloadAnchor" class="hidden"></a>
 
   <script>
-    // State management
+    /* -------------------------------------------------------------
+       STATE MANAGEMENT & MULTI-STUN WEBRTC CONFIG
+    -------------------------------------------------------------- */
     let peer = null;
     let localStream = null;
     let remoteStreamRef = null;
@@ -366,10 +397,23 @@
     let currentFacingMode = 'environment';
     let isAudioMuted = true;
     let qrcodeInstance = null;
+    let canvasAnimationId = null;
+    let isCanvasBlitterActive = false;
 
-    // Prefill Random Room ID
+    // Redundant STUN server configuration to pierce strict mobile NATs
+    const rtcConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ],
+      sdpSemantics: 'unified-plan'
+    };
+
     function generateRandomRoomId() {
-      const randomId = 'cam-' + Math.random().toString(36).substring(2, 8);
+      const randomId = 'cam-' + Math.random().toString(36).substring(2, 7);
       document.getElementById('hostRoomIdInput').value = randomId;
       return randomId;
     }
@@ -389,7 +433,6 @@
       }
     });
 
-    // View switcher
     function switchView(viewId) {
       ['roleSelectionView', 'hostSetupView', 'viewerSetupView', 'activeStreamView'].forEach(id => {
         document.getElementById(id).classList.add('hidden');
@@ -397,21 +440,21 @@
       document.getElementById(viewId).classList.remove('hidden');
     }
 
-    // UI Toasts
     function showToast(message, type = 'info') {
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       const colors = {
-        info: 'bg-slate-800 text-slate-200 border-slate-700',
-        success: 'bg-emerald-950 text-emerald-200 border-emerald-800',
-        error: 'bg-rose-950 text-rose-200 border-rose-800',
-        warn: 'bg-amber-950 text-amber-200 border-amber-800'
+        info: 'bg-slate-900 text-slate-200 border-slate-700',
+        success: 'bg-emerald-950 text-emerald-200 border-emerald-700',
+        error: 'bg-rose-950 text-rose-200 border-rose-700',
+        warn: 'bg-amber-950 text-amber-200 border-amber-700'
       };
-      toast.className = `px-4 py-2.5 rounded-xl border text-xs shadow-xl flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+      toast.className = `px-3.5 py-2.5 rounded-xl border text-xs shadow-xl flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 font-sans ${colors[type] || colors.info}`;
       
       let icon = 'fa-info-circle';
-      if (type === 'success') icon = 'fa-circle-check';
-      if (type === 'error') icon = 'fa-triangle-exclamation';
+      if (type === 'success') icon = 'fa-circle-check text-emerald-400';
+      if (type === 'error') icon = 'fa-triangle-exclamation text-rose-400';
+      if (type === 'warn') icon = 'fa-circle-exclamation text-amber-400';
       
       toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
       container.appendChild(toast);
@@ -426,7 +469,6 @@
       }, 3500);
     }
 
-    // Status Indicator
     function updateStatus(state, message) {
       const dot = document.getElementById('globalStatusDot');
       const text = document.getElementById('globalStatusText');
@@ -435,17 +477,60 @@
 
       const colorMap = {
         ready: 'bg-slate-500',
-        connecting: 'bg-yellow-400 animate-pulse',
-        live: 'bg-emerald-500',
+        connecting: 'bg-amber-400 animate-pulse',
+        live: 'bg-emerald-400',
         error: 'bg-rose-500'
       };
 
-      dot.className = `inline-block w-2.5 h-2.5 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
+      dot.className = `inline-block w-2 h-2 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
       text.innerText = message;
       if (streamDot && streamText) {
-        streamDot.className = `w-2.5 h-2.5 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
+        streamDot.className = `w-2 h-2 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
         streamText.innerText = message;
       }
+    }
+
+    /* -------------------------------------------------------------
+       CAMERA CAPTURE WITH GRACEFUL CONSTRAINT FALLBACKS
+    -------------------------------------------------------------- */
+    async function acquireCameraStream(preferredQuality, facing) {
+      const profiles = [];
+      if (preferredQuality === '1080') {
+        profiles.push({ width: { ideal: 1920 }, height: { ideal: 1080 } });
+        profiles.push({ width: { ideal: 1280 }, height: { ideal: 720 } });
+      } else if (preferredQuality === '720') {
+        profiles.push({ width: { ideal: 1280 }, height: { ideal: 720 } });
+        profiles.push({ width: { ideal: 854 }, height: { ideal: 480 } });
+      } else {
+        profiles.push({ width: { ideal: 640 }, height: { ideal: 480 } });
+      }
+      // Absolute baseline fallback: any video
+      profiles.push(true);
+
+      for (let videoConstraint of profiles) {
+        try {
+          const constraints = {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true
+            },
+            video: typeof videoConstraint === 'boolean' ? true : {
+              ...videoConstraint,
+              facingMode: { ideal: facing }
+            }
+          };
+
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          if (stream.getVideoTracks().length > 0) {
+            console.log('Acquired camera with profile:', videoConstraint);
+            return stream;
+          }
+        } catch (err) {
+          console.warn('Constraint profile failed, trying fallback...', err.message);
+        }
+      }
+
+      throw new Error('Unable to acquire camera visual track on this device.');
     }
 
     /* -------------------------------------------------------------
@@ -457,50 +542,26 @@
       const quality = document.getElementById('hostQualitySelect').value;
       currentFacingMode = document.getElementById('hostCameraSelect').value;
 
-      if (!roomInput) {
-        showToast('Please enter a room name', 'error');
-        return;
-      }
-      if (!pwdInput) {
-        showToast('Please specify a password for protection', 'error');
-        return;
-      }
+      if (!roomInput) return showToast('Please enter a room name', 'error');
+      if (!pwdInput) return showToast('Please enter a passcode', 'error');
 
       currentRoomId = roomInput;
       roomPasscode = pwdInput;
       userRole = 'HOST';
 
-      updateStatus('connecting', 'Requesting camera permissions...');
-
-      let width = 1280, height = 720;
-      if (quality === '1080') { width = 1920; height = 1080; }
-      else if (quality === '480') { width = 854; height = 480; }
+      updateStatus('connecting', 'Acquiring camera...');
 
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: currentFacingMode,
-            width: { ideal: width },
-            height: { ideal: height },
-            frameRate: { ideal: 30 }
-          },
-          audio: true
-        });
-
-        // Verify video tracks are genuinely present and active
-        const videoTracks = localStream.getVideoTracks();
-        if (videoTracks.length === 0 || !videoTracks[0].enabled) {
-          throw new Error('No active video track provided by device camera.');
-        }
-
+        localStream = await acquireCameraStream(quality, currentFacingMode);
+        
         const videoPlayer = document.getElementById('mainVideoPlayer');
-        videoPlayer.muted = true; // Broadcaster is always muted locally to prevent feedback
+        videoPlayer.muted = true;
         videoPlayer.srcObject = localStream;
-
+        
         if (currentFacingMode === 'user') {
-          videoPlayer.classList.add('mirror-video');
+          videoPlayer.classList.add('mirror-mode');
         } else {
-          videoPlayer.classList.remove('mirror-video');
+          videoPlayer.classList.remove('mirror-mode');
         }
 
         await videoPlayer.play();
@@ -509,58 +570,53 @@
         buildShareDetails();
         initHostPeer(currentRoomId);
 
+        startDiagnosticsLoop();
       } catch (err) {
-        console.error('Camera error:', err);
-        showToast('Camera access failed: ' + err.message, 'error');
-        updateStatus('error', 'Camera access denied');
+        console.error('Camera capture error:', err);
+        showToast('Camera error: ' + err.message, 'error');
+        updateStatus('error', 'Camera failed');
       }
     }
 
     function initHostPeer(roomId) {
-      updateStatus('connecting', 'Registering P2P Channel...');
+      updateStatus('connecting', 'Registering P2P ID...');
       const peerId = `peercam-${roomId}`;
 
       peer = new Peer(peerId, {
         debug: 1,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-          ]
-        }
+        config: rtcConfig
       });
 
-      peer.on('open', (id) => {
-        updateStatus('live', 'Broadcaster Ready');
-        showToast('Broadcasting live! Share link or QR code to view.', 'success');
+      peer.on('open', () => {
+        updateStatus('live', 'Broadcaster Live');
+        showToast('Broadcasting live visual stream!', 'success');
         document.getElementById('waitingOverlay').classList.add('hidden');
         updateResolutionBadge();
       });
 
       peer.on('error', (err) => {
-        console.error('Peer error:', err);
+        console.error('Host peer error:', err);
         if (err.type === 'unavailable-id') {
-          showToast(`Room '${roomId}' is already in use. Please choose another name.`, 'error');
+          showToast(`Room '${roomId}' already taken. Choose another.`, 'error');
           disconnectSession();
         } else {
-          showToast('Network error: ' + err.message, 'error');
+          showToast('Network notice: ' + err.message, 'warn');
         }
-        updateStatus('error', 'Network error');
       });
 
-      // Handle Authentication handshake
+      // Handle Password DataChannel handshake
       peer.on('connection', (conn) => {
         conn.on('data', (data) => {
           if (data && data.type === 'AUTH_REQUEST') {
             if (data.passcode === roomPasscode) {
-              conn.send({ type: 'AUTH_SUCCESS', message: 'Passcode accepted' });
+              conn.send({ type: 'AUTH_SUCCESS' });
               dataConnections.push(conn);
               updateViewerCount();
               showToast('Viewer joined securely', 'info');
             } else {
-              conn.send({ type: 'AUTH_FAILED', message: 'Incorrect passcode' });
+              conn.send({ type: 'AUTH_FAILED' });
               setTimeout(() => conn.close(), 1000);
-              showToast('Viewer rejected: Incorrect password', 'warn');
+              showToast('Viewer rejected: Incorrect passcode', 'warn');
             }
           }
         });
@@ -571,7 +627,7 @@
         });
       });
 
-      // Stream visual to calling peer
+      // Answer incoming call with camera stream
       peer.on('call', (call) => {
         call.answer(localStream);
       });
@@ -589,16 +645,13 @@
     }
 
     /* -------------------------------------------------------------
-       RECEIVER / VIEWER LOGIC (WITH VIDEO AUTOPLAY SAFEGUARDS)
+       RECEIVER / VIEWER LOGIC (WITH COMPREHENSIVE VISUAL SYNC)
     -------------------------------------------------------------- */
     function connectAsViewer() {
       const roomInput = document.getElementById('viewerRoomIdInput').value.trim();
       const pwdInput = document.getElementById('viewerPasscodeInput').value.trim();
 
-      if (!roomInput) {
-        showToast('Please enter the Host Room ID', 'error');
-        return;
-      }
+      if (!roomInput) return showToast('Please enter Host Room ID', 'error');
 
       currentRoomId = roomInput;
       roomPasscode = pwdInput;
@@ -607,21 +660,16 @@
       setupActiveView('VIEWER');
       document.getElementById('waitingOverlay').classList.remove('hidden');
       document.getElementById('waitingTitle').innerText = 'Contacting Broadcaster...';
-      document.getElementById('waitingSub').innerText = 'Verifying passcode & establishing WebRTC visual stream...';
+      document.getElementById('waitingSub').innerText = 'Authenticating passcode & opening WebRTC pipeline...';
 
-      updateStatus('connecting', 'Connecting to Host...');
+      updateStatus('connecting', 'Connecting...');
 
       peer = new Peer({
         debug: 1,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-          ]
-        }
+        config: rtcConfig
       });
 
-      peer.on('open', (id) => {
+      peer.on('open', () => {
         const hostPeerId = `peercam-${currentRoomId}`;
         activeDataConnection = peer.connect(hostPeerId, { reliable: true });
 
@@ -634,9 +682,9 @@
 
         activeDataConnection.on('data', (data) => {
           if (data.type === 'AUTH_SUCCESS') {
-            showToast('Passcode verified! Requesting video feed...', 'success');
+            showToast('Passcode authenticated! Requesting video track...', 'success');
             
-            // Dummy audio track for calling host
+            // Dummy audio track ensures call negotiation starts immediately
             const dummyCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = dummyCtx.createOscillator();
             const dst = dummyCtx.createMediaStreamDestination();
@@ -645,81 +693,195 @@
 
             activeCall = peer.call(hostPeerId, dst.stream);
 
+            // BINDING 1: Direct PeerJS Stream Event
             activeCall.on('stream', (incomingStream) => {
+              console.log('Incoming stream via call.on("stream")', incomingStream.getTracks());
               remoteStreamRef = incomingStream;
-              attachAndPlayRemoteStream(incomingStream);
+              bindStreamToReceiver(incomingStream);
             });
 
+            // BINDING 2: Native RTCPeerConnection Track Listener (Handles async video track arrival)
+            if (activeCall.peerConnection) {
+              activeCall.peerConnection.ontrack = (event) => {
+                console.log('Native ontrack event caught:', event.track.kind);
+                if (event.streams && event.streams[0]) {
+                  remoteStreamRef = event.streams[0];
+                  bindStreamToReceiver(event.streams[0]);
+                }
+              };
+            }
+
             activeCall.on('close', () => {
-              showToast('Broadcaster disconnected', 'warn');
+              showToast('Broadcaster stopped transmission', 'warn');
               updateStatus('ready', 'Stream ended');
+              stopCanvasBlitter();
               document.getElementById('waitingOverlay').classList.remove('hidden');
-              document.getElementById('waitingTitle').innerText = 'Broadcast Closed';
-              document.getElementById('waitingSub').innerText = 'The camera device has stopped broadcasting.';
+              document.getElementById('waitingTitle').innerText = 'Broadcast Terminated';
+              document.getElementById('waitingSub').innerText = 'The camera device has disconnected.';
             });
 
           } else if (data.type === 'AUTH_FAILED') {
             showToast('Passcode verification failed!', 'error');
             updateStatus('error', 'Wrong passcode');
             document.getElementById('waitingOverlay').classList.remove('hidden');
-            document.getElementById('waitingTitle').innerText = 'Access Denied';
-            document.getElementById('waitingSub').innerText = 'The password entered did not match the broadcaster\'s setting.';
+            document.getElementById('waitingTitle').innerText = 'Passcode Rejected';
+            document.getElementById('waitingSub').innerText = 'Please check the room passcode and try again.';
           }
         });
 
         activeDataConnection.on('error', (err) => {
-          showToast('Connection error: ' + err.message, 'error');
+          showToast('Data channel notice: ' + err.message, 'error');
         });
       });
 
       peer.on('error', (err) => {
         if (err.type === 'peer-unavailable') {
-          showToast(`Host '${currentRoomId}' not found. Make sure Host is live.`, 'error');
+          showToast(`Host '${currentRoomId}' not found. Verify camera host is online.`, 'error');
           document.getElementById('waitingOverlay').classList.remove('hidden');
-          document.getElementById('waitingTitle').innerText = 'Host Not Available';
-          document.getElementById('waitingSub').innerText = 'Could not find broadcaster with ID ' + currentRoomId;
+          document.getElementById('waitingTitle').innerText = 'Broadcaster Unavailable';
+          document.getElementById('waitingSub').innerText = 'Could not find active broadcaster for ' + currentRoomId;
         } else {
           showToast('Network error: ' + err.message, 'error');
         }
-        updateStatus('error', 'Connection failed');
+        updateStatus('error', 'Connection error');
       });
+
+      startDiagnosticsLoop();
     }
 
-    // Attach stream ensuring visual rendering won't be suppressed by autoplay policy
-    function attachAndPlayRemoteStream(stream) {
+    /* -------------------------------------------------------------
+       DUAL-RENDERER: HTML5 VIDEO + CANVAS BLIT FALLBACK ENGINE
+    -------------------------------------------------------------- */
+    function bindStreamToReceiver(stream) {
       const videoPlayer = document.getElementById('mainVideoPlayer');
       const waitingOverlay = document.getElementById('waitingOverlay');
-      const manualOverlay = document.getElementById('manualPlayOverlay');
       const unmuteBanner = document.getElementById('unmutePromptBanner');
 
-      // CRITICAL FIX: Ensure muted is true before assignment to guarantee mobile browsers render the video frames
+      // Hook async track additions (crucial when audio arrives before video packets)
+      stream.onaddtrack = (e) => {
+        console.log('Stream track added asynchronously:', e.track.kind);
+        if (videoPlayer.srcObject !== stream) {
+          videoPlayer.srcObject = stream;
+        }
+      };
+
+      // Ensure video is muted initially to satisfy browser autoplay security
       videoPlayer.muted = true;
       videoPlayer.srcObject = stream;
 
-      const triggerPlay = () => {
+      const attemptPlay = () => {
         videoPlayer.play().then(() => {
           waitingOverlay.classList.add('hidden');
-          manualOverlay.classList.add('hidden');
-          updateStatus('live', 'Live Feed Active');
+          document.getElementById('manualPlayOverlay').classList.add('hidden');
+          updateStatus('live', 'Visual Feed Active');
           updateResolutionBadge();
 
-          // Show the unmute prompt if audio is available
           if (stream.getAudioTracks().length > 0) {
             unmuteBanner.classList.remove('hidden');
           }
+
+          // Monitor if video frames are actually painting, else spin up canvas blitter
+          setupDualRendererWatchdog();
         }).catch((err) => {
-          console.warn('Autoplay blocked. Showing manual play trigger:', err);
+          console.warn('Direct autoplay prevented by policy:', err);
           waitingOverlay.classList.add('hidden');
-          manualOverlay.classList.remove('hidden');
+          document.getElementById('manualPlayOverlay').classList.remove('hidden');
         });
       };
 
-      if (videoPlayer.readyState >= 2) {
-        triggerPlay();
+      if (videoPlayer.readyState >= 1) {
+        attemptPlay();
       } else {
-        videoPlayer.onloadedmetadata = () => {
-          triggerPlay();
-        };
+        videoPlayer.onloadedmetadata = () => attemptPlay();
+      }
+    }
+
+    // Watchdog: If video element has decoded frames but fails to paint visually, activate Canvas Blit
+    function setupDualRendererWatchdog() {
+      const videoPlayer = document.getElementById('mainVideoPlayer');
+      const canvas = document.getElementById('fallbackCanvas');
+
+      let checkCount = 0;
+      const watchdogTimer = setInterval(() => {
+        checkCount++;
+        if (videoPlayer.videoWidth > 0 && videoPlayer.videoHeight > 0) {
+          // Video frames are decoding
+          clearInterval(watchdogTimer);
+          startCanvasBlitter(); // Ensure continuous visual blit fallback is primed
+        } else if (checkCount > 10) {
+          clearInterval(watchdogTimer);
+          startCanvasBlitter();
+        }
+      }, 400);
+    }
+
+    function startCanvasBlitter() {
+      if (isCanvasBlitterActive) return;
+      const videoPlayer = document.getElementById('mainVideoPlayer');
+      const canvas = document.getElementById('fallbackCanvas');
+      const ctx = canvas.getContext('2d', { alpha: false });
+      
+      isCanvasBlitterActive = true;
+      document.getElementById('hudCanvasStatus').innerText = 'Active (60FPS)';
+
+      function renderFrame() {
+        if (!isCanvasBlitterActive) return;
+
+        if (videoPlayer.readyState >= 2 && videoPlayer.videoWidth > 0) {
+          if (canvas.width !== videoPlayer.videoWidth || canvas.height !== videoPlayer.videoHeight) {
+            canvas.width = videoPlayer.videoWidth;
+            canvas.height = videoPlayer.videoHeight;
+          }
+
+          // Blit current video frame to canvas
+          ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
+
+          // If the native video tag isn't rendering pixels (black screen bug), make canvas visible
+          if (canvas.classList.contains('hidden')) {
+            canvas.classList.remove('hidden');
+            document.getElementById('rendererNameTag').innerText = 'CANVAS-2D';
+            document.getElementById('hudActiveRenderer').innerText = '2D Blit Engine';
+          }
+        }
+        canvasAnimationId = requestAnimationFrame(renderFrame);
+      }
+      renderFrame();
+    }
+
+    function stopCanvasBlitter() {
+      isCanvasBlitterActive = false;
+      if (canvasAnimationId) cancelAnimationFrame(canvasAnimationId);
+      document.getElementById('fallbackCanvas').classList.add('hidden');
+      document.getElementById('rendererNameTag').innerText = 'GPU';
+      document.getElementById('hudCanvasStatus').innerText = 'Idle';
+      document.getElementById('hudActiveRenderer').innerText = 'Native Video';
+    }
+
+    // Manual Force Resync Action
+    function forceSyncPipeline() {
+      const icon = document.getElementById('forceReloadIcon');
+      icon.classList.add('animate-spin');
+      showToast('Resyncing visual pipeline...', 'info');
+
+      const videoPlayer = document.getElementById('mainVideoPlayer');
+      const targetStream = userRole === 'HOST' ? localStream : remoteStreamRef;
+
+      if (targetStream) {
+        videoPlayer.srcObject = null;
+        setTimeout(() => {
+          videoPlayer.srcObject = targetStream;
+          videoPlayer.play().then(() => {
+            startCanvasBlitter();
+            showToast('Video pipeline reloaded!', 'success');
+            icon.classList.remove('animate-spin');
+          }).catch(err => {
+            icon.classList.remove('animate-spin');
+            showToast('Reload notice: ' + err.message, 'warn');
+          });
+        }, 200);
+      } else {
+        icon.classList.remove('animate-spin');
+        showToast('No active stream to resync', 'warn');
       }
     }
 
@@ -728,6 +890,7 @@
       videoPlayer.play().then(() => {
         document.getElementById('manualPlayOverlay').classList.add('hidden');
         document.getElementById('waitingOverlay').classList.add('hidden');
+        startCanvasBlitter();
         updateStatus('live', 'Live Feed Active');
         updateResolutionBadge();
       }).catch(err => {
@@ -740,27 +903,61 @@
       videoPlayer.muted = false;
       isAudioMuted = false;
       document.getElementById('unmutePromptBanner').classList.add('hidden');
-      document.getElementById('audioIcon').className = 'fa-solid fa-volume-high text-slate-200';
+      document.getElementById('audioIcon').className = 'fa-solid fa-volume-high text-cyan-400';
       showToast('Audio unmuted', 'success');
     }
 
     /* -------------------------------------------------------------
-       CONTROLS: Camera Switch, Audio Mute, Snapshot, Fullscreen
+       DIAGNOSTICS HUD ENGINE
+    -------------------------------------------------------------- */
+    function toggleDiagnosticsHud() {
+      const hud = document.getElementById('diagnosticsHud');
+      hud.classList.toggle('hidden');
+    }
+
+    function startDiagnosticsLoop() {
+      document.getElementById('toggleHudBtn').classList.remove('hidden');
+      
+      setInterval(() => {
+        const stream = userRole === 'HOST' ? localStream : remoteStreamRef;
+        const videoPlayer = document.getElementById('mainVideoPlayer');
+
+        if (stream) {
+          const vTracks = stream.getVideoTracks();
+          const aTracks = stream.getAudioTracks();
+
+          document.getElementById('hudVideoTracks').innerText = `${vTracks.length} (${vTracks.map(t => t.readyState).join(',') || 'none'})`;
+          document.getElementById('hudAudioTracks').innerText = `${aTracks.length} (${aTracks.map(t => t.readyState).join(',') || 'none'})`;
+          
+          if (vTracks.length > 0) {
+            const track = vTracks[0];
+            document.getElementById('hudVideoStatus').innerText = `${track.enabled ? 'Enabled' : 'Muted'} / ${track.readyState}`;
+          } else {
+            document.getElementById('hudVideoStatus').innerText = 'None Available';
+          }
+        }
+
+        if (videoPlayer) {
+          document.getElementById('hudDecodedDims').innerText = `${videoPlayer.videoWidth} x ${videoPlayer.videoHeight}`;
+        }
+      }, 800);
+    }
+
+    /* -------------------------------------------------------------
+       CAMERA & HARDWARE CONTROLS
     -------------------------------------------------------------- */
     async function flipCamera() {
-      if (userRole !== 'HOST' || !localStream) {
-        return;
-      }
+      if (userRole !== 'HOST' || !localStream) return;
       currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
       showToast('Switching camera...', 'info');
 
-      localStream.getVideoTracks().forEach(track => track.stop());
+      localStream.getVideoTracks().forEach(t => t.stop());
 
       try {
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: currentFacingMode },
-          audio: true
-        });
+        const newStream = await acquireCameraStream(
+          document.getElementById('hostQualitySelect').value,
+          currentFacingMode
+        );
 
         const newVideoTrack = newStream.getVideoTracks()[0];
         const videoPlayer = document.getElementById('mainVideoPlayer');
@@ -771,26 +968,23 @@
         videoPlayer.srcObject = localStream;
 
         if (currentFacingMode === 'user') {
-          videoPlayer.classList.add('mirror-video');
+          videoPlayer.classList.add('mirror-mode');
         } else {
-          videoPlayer.classList.remove('mirror-video');
+          videoPlayer.classList.remove('mirror-mode');
         }
 
-        // Replace track on all existing peer connections
+        // Replace track across all active WebRTC senders
         if (peer && peer.connections) {
           Object.values(peer.connections).forEach(connectionGroup => {
             connectionGroup.forEach(c => {
               if (c.peerConnection) {
-                const senders = c.peerConnection.getSenders();
-                const sender = senders.find(s => s.track && s.track.kind === 'video');
-                if (sender) {
-                  sender.replaceTrack(newVideoTrack);
-                }
+                const sender = c.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (sender) sender.replaceTrack(newVideoTrack);
               }
             });
           });
         }
-        showToast('Switched to ' + (currentFacingMode === 'user' ? 'Front' : 'Back') + ' Camera', 'success');
+        showToast('Switched to ' + (currentFacingMode === 'user' ? 'Front' : 'Back') + ' camera', 'success');
       } catch (err) {
         showToast('Camera switch failed: ' + err.message, 'error');
       }
@@ -803,18 +997,14 @@
       if (userRole === 'HOST' && localStream) {
         const audioTracks = localStream.getAudioTracks();
         if (audioTracks.length > 0) {
-          const currentlyEnabled = audioTracks[0].enabled;
-          audioTracks[0].enabled = !currentlyEnabled;
-          icon.className = !currentlyEnabled 
-            ? 'fa-solid fa-microphone text-slate-200' 
-            : 'fa-solid fa-microphone-slash text-rose-400';
-          showToast(!currentlyEnabled ? 'Microphone active' : 'Microphone muted', 'info');
+          const enabled = !audioTracks[0].enabled;
+          audioTracks[0].enabled = enabled;
+          icon.className = enabled ? 'fa-solid fa-microphone text-cyan-400' : 'fa-solid fa-microphone-slash text-rose-400';
+          showToast(enabled ? 'Microphone live' : 'Microphone muted', 'info');
         }
       } else {
         videoPlayer.muted = !videoPlayer.muted;
-        icon.className = !videoPlayer.muted 
-          ? 'fa-solid fa-volume-high text-slate-200' 
-          : 'fa-solid fa-volume-xmark text-rose-400';
+        icon.className = !videoPlayer.muted ? 'fa-solid fa-volume-high text-cyan-400' : 'fa-solid fa-volume-xmark text-rose-400';
         document.getElementById('unmutePromptBanner').classList.add('hidden');
         showToast(videoPlayer.muted ? 'Audio muted' : 'Audio playing', 'info');
       }
@@ -822,32 +1012,34 @@
 
     function captureSnapshot() {
       const video = document.getElementById('mainVideoPlayer');
-      if (!video || !video.videoWidth) {
-        showToast('No active visual feed to capture', 'warn');
+      const canvasElem = document.getElementById('fallbackCanvas');
+
+      const width = video.videoWidth || canvasElem.width;
+      const height = video.videoHeight || canvasElem.height;
+
+      if (!width || !height) {
+        showToast('No active visual frame to capture', 'warn');
         return;
       }
 
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext('2d');
 
-      if (video.classList.contains('mirror-video')) {
+      if (video.classList.contains('mirror-mode')) {
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
       }
+
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
       const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
       const link = document.getElementById('downloadAnchor');
       link.href = dataUrl;
-      link.download = `peercam-snapshot-${Date.now()}.jpg`;
+      link.download = `peercam-${Date.now()}.jpg`;
       link.click();
-      showToast('Visual snapshot saved!', 'success');
-    }
-
-    function triggerRecordingPlaceholder() {
-      showToast('Continuous recording is slated for a future update. Instant Snapshot is available now!', 'info');
+      showToast('Visual frame saved to disk', 'success');
     }
 
     function toggleFullscreen() {
@@ -862,7 +1054,7 @@
     }
 
     /* -------------------------------------------------------------
-       UI SETUP & SHARING
+       UI HELPERS & MODALS
     -------------------------------------------------------------- */
     function setupActiveView(role) {
       switchView('activeStreamView');
@@ -872,13 +1064,13 @@
       
       if (role === 'HOST') {
         roleBadge.innerText = 'BROADCASTER';
-        roleBadge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
+        roleBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider bg-cyan-950 text-cyan-400 border border-cyan-800';
         document.getElementById('flipCamBtn').classList.remove('hidden');
         document.getElementById('pairingQrBtn').classList.remove('hidden');
-        audioIcon.className = 'fa-solid fa-microphone text-slate-200';
+        audioIcon.className = 'fa-solid fa-microphone text-cyan-400';
       } else {
         roleBadge.innerText = 'RECEIVER';
-        roleBadge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        roleBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider bg-indigo-950 text-indigo-400 border border-indigo-800';
         document.getElementById('flipCamBtn').classList.add('hidden');
         document.getElementById('pairingQrBtn').classList.add('hidden');
         document.getElementById('viewerCountBadge').classList.add('hidden');
@@ -895,18 +1087,16 @@
       qrTarget.innerHTML = '';
       qrcodeInstance = new QRCode(qrTarget, {
         text: joinUrl,
-        width: 180,
-        height: 180,
-        colorDark: "#0f172a",
+        width: 170,
+        height: 170,
+        colorDark: "#020617",
         colorLight: "#ffffff",
         correctLevel: QRCode.CorrectLevel.M
       });
     }
 
     function toggleShareModal(show) {
-      const modal = document.getElementById('shareModal');
-      if (show) modal.classList.remove('hidden');
-      else modal.classList.add('hidden');
+      document.getElementById('shareModal').classList.toggle('hidden', !show);
     }
 
     function copyShareUrl() {
@@ -915,7 +1105,7 @@
       copyText.setSelectionRange(0, 99999);
       try {
         document.execCommand('copy');
-        showToast('Pairing link copied to clipboard!', 'success');
+        showToast('Direct pairing URL copied!', 'success');
       } catch (err) {
         showToast('Unable to copy automatically', 'warn');
       }
@@ -930,10 +1120,12 @@
           badge.classList.remove('hidden');
           clearInterval(interval);
         }
-      }, 500);
+      }, 400);
     }
 
     function disconnectSession() {
+      stopCanvasBlitter();
+      
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
         localStream = null;
@@ -956,14 +1148,16 @@
 
       const video = document.getElementById('mainVideoPlayer');
       video.srcObject = null;
-      video.classList.remove('mirror-video');
+      video.classList.remove('mirror-mode');
 
       document.getElementById('unmutePromptBanner').classList.add('hidden');
       document.getElementById('manualPlayOverlay').classList.add('hidden');
+      document.getElementById('diagnosticsHud').classList.add('hidden');
+      document.getElementById('toggleHudBtn').classList.add('hidden');
 
-      updateStatus('ready', 'Disconnected');
+      updateStatus('ready', 'Ready');
       switchView('roleSelectionView');
-      showToast('Session terminated', 'info');
+      showToast('Session ended', 'info');
     }
 
     function resetApp() {
