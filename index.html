@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PeerCam Pro - Bulletproof P2P Visual Stream</title>
+  <title>PeerCam Pro - Universal Windows & Mobile P2P Stream</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Font Awesome Icons -->
@@ -13,17 +13,12 @@
   <!-- QRCode.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
-    .mirror-mode {
-      transform: scaleX(-1);
-    }
-    .pulse-live {
-      animation: pulse-dot 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
+    .mirror-mode { transform: scaleX(-1); }
+    .pulse-live { animation: pulse-dot 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.3; transform: scale(1.15); }
     }
-    /* Monospace HUD font */
     .font-hud {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     }
@@ -40,7 +35,7 @@
         </div>
         <div>
           <span class="font-extrabold text-base tracking-tight bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-300 bg-clip-text text-transparent">PEERCAM</span>
-          <span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 font-mono border border-cyan-900/50">PRO-SYNC</span>
+          <span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 font-mono border border-cyan-900/50">WIN+MOBILE</span>
         </div>
       </div>
       
@@ -59,19 +54,40 @@
   <!-- Notification Toast Container -->
   <div id="toastContainer" class="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
 
+  <!-- Windows Hardware Troubleshooting Banner / Modal -->
+  <div id="hardwareErrorModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-rose-800/80 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+      <div class="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl mb-4 border border-rose-500/30">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <h3 id="hwErrorTitle" class="text-lg font-bold text-white mb-2">Webcam Access Restricted</h3>
+      <div id="hwErrorBody" class="text-xs text-slate-300 leading-relaxed space-y-2 mb-6 bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono">
+        <!-- Error text dynamically populated -->
+      </div>
+      <div class="flex gap-2">
+        <button onclick="document.getElementById('hardwareErrorModal').classList.add('hidden')" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700">
+          Dismiss
+        </button>
+        <button onclick="refreshDeviceList(); document.getElementById('hardwareErrorModal').classList.add('hidden');" class="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-black text-xs font-bold rounded-xl shadow-lg">
+          Re-scan Cameras
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Main View Stage -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 flex flex-col items-center justify-center">
 
     <!-- VIEW 1: Role Selection Landing -->
     <div id="roleSelectionView" class="w-full max-w-3xl flex flex-col items-center text-center py-6">
       <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/50 border border-cyan-800/40 text-cyan-400 text-xs font-mono mb-4">
-        <i class="fa-solid fa-circle-check"></i> Dual-Renderer WebRTC Video Engine
+        <i class="fa-solid fa-laptop-code"></i> Windows & Mobile WebRTC Engine
       </div>
       <h1 class="text-3xl md:text-5xl font-black tracking-tight text-white mb-3">
         Direct Peer-to-Peer <span class="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">Camera Feed</span>
       </h1>
       <p class="text-slate-400 text-sm md:text-base max-w-xl mb-8 leading-relaxed">
-        High-performance encrypted peer-to-peer visual stream between phones, tablets, and laptops. Guaranteed video track rendering with dual hardware/canvas pipeline.
+        Live camera streaming between Windows laptops, phones, and tablets with direct hardware selector, low-latency visual engine, and zero server recording.
       </p>
 
       <!-- Selection Cards -->
@@ -84,10 +100,10 @@
             </div>
             <h2 class="text-xl font-bold text-white mb-1.5">Host Camera</h2>
             <p class="text-slate-400 text-xs leading-relaxed mb-6">
-              Use this device (Android, iPhone, or PC webcam) to transmit live visual video and microphone audio.
+              Transmit live video and microphone audio from this device (Windows laptop webcam, Android, or iPhone).
             </p>
           </div>
-          <button onclick="switchView('hostSetupView')" class="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-black font-bold text-sm rounded-xl shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 transition">
+          <button onclick="openHostSetup()" class="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-black font-bold text-sm rounded-xl shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 transition">
             <span>Broadcast Camera</span>
             <i class="fa-solid fa-arrow-right text-xs"></i>
           </button>
@@ -101,7 +117,7 @@
             </div>
             <h2 class="text-xl font-bold text-white mb-1.5">Receiver Screen</h2>
             <p class="text-slate-400 text-xs leading-relaxed mb-6">
-              Watch the incoming visual video live on this laptop or device with passcode security and zero server storage.
+              Watch the incoming visual video live on this laptop or device with passcode security and zero recording.
             </p>
           </div>
           <button onclick="switchView('viewerSetupView')" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 text-cyan-400 font-bold text-sm rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition">
@@ -112,8 +128,8 @@
       </div>
     </div>
 
-    <!-- VIEW 2: Host Broadcaster Setup -->
-    <div id="hostSetupView" class="hidden w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+    <!-- VIEW 2: Host Broadcaster Setup (With Windows Hardware Selector) -->
+    <div id="hostSetupView" class="hidden w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
       <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-800">
         <h2 class="text-lg font-bold text-white flex items-center gap-2">
           <i class="fa-solid fa-tower-broadcast text-cyan-400"></i> Setup Broadcaster
@@ -124,42 +140,79 @@
       </div>
 
       <div class="space-y-4 text-sm">
-        <div>
-          <label class="block text-xs font-mono text-slate-400 mb-1">ROOM CHANNEL ID</label>
-          <div class="relative">
-            <input type="text" id="hostRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-cyan-500 outline-none" placeholder="e.g. cam-789">
-            <button onclick="generateRandomRoomId()" class="absolute right-2 top-2 px-2 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg border border-slate-700 font-mono">Random</button>
+        <!-- Room ID & Passcode -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1">ROOM CHANNEL ID</label>
+            <div class="relative">
+              <input type="text" id="hostRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-cyan-500 outline-none text-xs" placeholder="e.g. cam-789">
+              <button onclick="generateRandomRoomId()" class="absolute right-1 top-1 px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg border border-slate-700 font-mono">New</button>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1">PASSCODE</label>
+            <input type="text" id="hostPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-cyan-500 outline-none text-xs" placeholder="mycam">
           </div>
         </div>
 
+        <!-- Dedicated Windows Hardware Device Selector -->
         <div>
-          <label class="block text-xs font-mono text-slate-400 mb-1">PROTECTION PASSCODE</label>
-          <input type="text" id="hostPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-cyan-500 outline-none" placeholder="mycam">
-          <p class="text-[11px] text-slate-500 mt-1">Viewers must match this password to authenticate.</p>
-        </div>
-
-        <div>
-          <label class="block text-xs font-mono text-slate-400 mb-1">CAMERA LENS</label>
-          <select id="hostCameraSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:border-cyan-500 outline-none">
-            <option value="environment" selected>Rear Camera (Back / Environment)</option>
-            <option value="user">Front Camera (Selfie / Webcam)</option>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-mono text-slate-400">SELECT WEBCAM HARDWARE</label>
+            <button onclick="refreshDeviceList()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1">
+              <i class="fa-solid fa-rotate-right text-[10px]"></i> Re-scan Devices
+            </button>
+          </div>
+          <select id="hardwareDeviceSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:border-cyan-500 outline-none text-xs font-mono">
+            <option value="auto">Auto-detect default camera</option>
           </select>
+          <p class="text-[11px] text-slate-500 mt-1">
+            Windows laptops: pick your integrated RGB webcam if your screen shows black (avoids infrared / Windows Hello sensor).
+          </p>
         </div>
 
-        <div>
-          <label class="block text-xs font-mono text-slate-400 mb-1">STARTING PROFILE</label>
-          <select id="hostQualitySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:border-cyan-500 outline-none">
-            <option value="720" selected>720p HD (Optimal cross-device WebRTC)</option>
-            <option value="480">480p Safe (Lowest latency & mobile stable)</option>
-            <option value="1080">1080p FHD (High bandwidth)</option>
-          </select>
+        <!-- Resolution & Lens Preset (Mobile) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1">MOBILE LENS FACING</label>
+            <select id="hostCameraFacingSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-cyan-500 outline-none text-xs">
+              <option value="user" selected>Front Camera / Webcam</option>
+              <option value="environment">Back Camera (Phone)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 mb-1">QUALITY PROFILE</label>
+            <select id="hostQualitySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-cyan-500 outline-none text-xs">
+              <option value="720" selected>720p HD (Recommended)</option>
+              <option value="480">480p Safe (Lowest latency)</option>
+              <option value="1080">1080p FHD (High CPU)</option>
+            </select>
+          </div>
         </div>
 
+        <!-- Inline Live Webcam Self-Test Preview Box -->
+        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col items-center">
+          <div class="w-full flex items-center justify-between mb-2">
+            <span class="text-xs font-mono text-slate-400">HARDWARE TEST PREVIEW</span>
+            <button id="testCamBtn" onclick="toggleLocalSelfTest()" class="px-2.5 py-1 text-[11px] rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 font-mono flex items-center gap-1.5">
+              <i class="fa-solid fa-vial text-[10px]"></i> <span id="testCamBtnText">Test Webcam Now</span>
+            </button>
+          </div>
+          <div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
+            <video id="selfTestVideo" autoplay playsinline webkit-playsinline muted class="w-full h-full object-contain hidden"></video>
+            <div id="selfTestPlaceholder" class="text-center p-4">
+              <i class="fa-solid fa-video text-slate-700 text-2xl mb-1"></i>
+              <p class="text-[11px] text-slate-500">Click 'Test Webcam Now' to verify Windows camera feed locally.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Start Broadcast Button -->
         <div class="pt-2 flex flex-col gap-2">
           <button onclick="startHostStream()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-black font-bold rounded-xl shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-play"></i> Start Broadcasting
+            <i class="fa-solid fa-play"></i> Start Broadcasting Feed
           </button>
-          <button onclick="switchView('roleSelectionView')" class="w-full py-2 text-slate-400 hover:text-white text-xs">Back</button>
+          <button onclick="stopSelfTest(); switchView('roleSelectionView');" class="w-full py-1.5 text-slate-400 hover:text-white text-xs">Cancel</button>
         </div>
       </div>
     </div>
@@ -256,10 +309,10 @@
           class="w-full h-full object-contain">
         </video>
 
-        <!-- Secondary Canvas Blit Renderer Fallback (Eliminates mobile black screen bug) -->
+        <!-- Secondary Canvas Blit Renderer Fallback (Eliminates mobile/Windows black screen bug) -->
         <canvas id="fallbackCanvas" class="hidden absolute inset-0 w-full h-full object-contain pointer-events-none"></canvas>
 
-        <!-- Live Diagnostics HUD Overlay (Toggleable) -->
+        <!-- Live Diagnostics HUD Overlay -->
         <div id="diagnosticsHud" class="hidden absolute top-4 left-4 z-30 bg-slate-950/90 border border-cyan-500/40 rounded-xl p-3 text-[11px] font-hud text-cyan-300 backdrop-blur shadow-2xl max-w-xs pointer-events-none">
           <div class="text-[10px] text-cyan-400 font-bold border-b border-cyan-900/60 pb-1 mb-1.5 flex items-center justify-between">
             <span>WEBRTC STREAM MONITOR</span>
@@ -275,7 +328,7 @@
           </div>
         </div>
 
-        <!-- Top-Right Unmute Audio Button (Appears when video is playing muted) -->
+        <!-- Top-Right Unmute Audio Button -->
         <div id="unmutePromptBanner" class="hidden absolute top-4 right-4 z-30">
           <button onclick="enableReceiverAudio()" class="px-3 py-1.5 bg-cyan-600/90 hover:bg-cyan-500 text-black rounded-xl text-xs font-bold backdrop-blur shadow-xl flex items-center gap-2 border border-cyan-300/40 animate-pulse">
             <i class="fa-solid fa-volume-high"></i> Click to Unmute
@@ -361,7 +414,6 @@
       </h3>
       <p class="text-xs text-slate-400 mb-3">Scan from your laptop or second phone's camera.</p>
 
-      <!-- QR Code Canvas Display -->
       <div class="bg-white p-3 rounded-xl flex items-center justify-center mx-auto w-fit shadow-md">
         <div id="qrcode"></div>
       </div>
@@ -378,7 +430,6 @@
     </div>
   </div>
 
-  <!-- Snapshot Download Anchor -->
   <a id="downloadAnchor" class="hidden"></a>
 
   <script>
@@ -387,20 +438,20 @@
     -------------------------------------------------------------- */
     let peer = null;
     let localStream = null;
+    let selfTestStream = null;
     let remoteStreamRef = null;
     let activeCall = null;
     let dataConnections = [];
     let activeDataConnection = null;
-    let userRole = null; // 'HOST' or 'VIEWER'
+    let userRole = null; 
     let currentRoomId = '';
     let roomPasscode = 'mycam';
-    let currentFacingMode = 'environment';
+    let currentFacingMode = 'user';
     let isAudioMuted = true;
     let qrcodeInstance = null;
     let canvasAnimationId = null;
     let isCanvasBlitterActive = false;
 
-    // Redundant STUN server configuration to pierce strict mobile NATs
     const rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -412,6 +463,11 @@
       sdpSemantics: 'unified-plan'
     };
 
+    function isDesktopOrWindows() {
+      const ua = navigator.userAgent;
+      return /Windows|Win64|Win32|Macintosh|Linux/i.test(ua) && !/Android|iPhone|iPad|iPod/i.test(ua);
+    }
+
     function generateRandomRoomId() {
       const randomId = 'cam-' + Math.random().toString(36).substring(2, 7);
       document.getElementById('hostRoomIdInput').value = randomId;
@@ -419,7 +475,6 @@
     }
     document.getElementById('hostRoomIdInput').value = generateRandomRoomId();
 
-    // Parse URL params for instant QR connection
     window.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const roomParam = urlParams.get('room');
@@ -431,6 +486,8 @@
         }
         switchView('viewerSetupView');
       }
+      // Populate hardware list on load
+      refreshDeviceList();
     });
 
     function switchView(viewId) {
@@ -438,6 +495,11 @@
         document.getElementById(id).classList.add('hidden');
       });
       document.getElementById(viewId).classList.remove('hidden');
+    }
+
+    function openHostSetup() {
+      switchView('hostSetupView');
+      refreshDeviceList();
     }
 
     function showToast(message, type = 'info') {
@@ -491,10 +553,103 @@
     }
 
     /* -------------------------------------------------------------
-       CAMERA CAPTURE WITH GRACEFUL CONSTRAINT FALLBACKS
+       WINDOWS WEBCAM ENUMERATION & SPECIFIC ERROR DIAGNOSTICS
     -------------------------------------------------------------- */
-    async function acquireCameraStream(preferredQuality, facing) {
+    async function refreshDeviceList() {
+      const select = document.getElementById('hardwareDeviceSelect');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        showToast('Device enumeration not supported in this browser context (HTTPS required).', 'warn');
+        return;
+      }
+
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+        select.innerHTML = '<option value="auto">Auto-detect default camera</option>';
+
+        if (videoInputs.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = 'auto';
+          opt.text = 'No cameras identified yet (permissions needed)';
+          select.appendChild(opt);
+          return;
+        }
+
+        videoInputs.forEach((dev, index) => {
+          const opt = document.createElement('option');
+          opt.value = dev.deviceId;
+          // Filter out / tag IR sensors commonly present on Windows Hello laptops
+          const isIR = /IR|Infrared|Depth|Windows Hello/i.test(dev.label);
+          opt.text = (dev.label || `Camera ${index + 1}`) + (isIR ? ' (⚠️ Infrared/Sensor)' : '');
+          select.appendChild(opt);
+        });
+
+        console.log('Enumerated video devices:', videoInputs);
+      } catch (err) {
+        console.warn('Could not enumerate devices:', err);
+      }
+    }
+
+    function displayHardwareError(error) {
+      const modal = document.getElementById('hardwareErrorModal');
+      const title = document.getElementById('hwErrorTitle');
+      const body = document.getElementById('hwErrorBody');
+
+      let explanation = '';
+      if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        title.innerText = 'Camera Locked by Windows App';
+        explanation = `
+          <p class="text-rose-400 font-bold mb-1">Error: NotReadableError (Hardware Exclusive Lock)</p>
+          <p>On Windows laptops, a webcam cannot be shared between multiple applications at the same time.</p>
+          <ul class="list-disc pl-4 space-y-1 mt-2 text-slate-300">
+            <li>Close <strong>Microsoft Teams, Zoom, Skype, Discord, OBS</strong> or the Windows Camera app.</li>
+            <li>If your laptop has a physical webcam privacy slider or shutter, open it.</li>
+            <li>Look for an F-key shortcut (e.g. Fn + F6 / F10) or hardware switch on Lenovo, ASUS, MSI, HP laptops.</li>
+          </ul>`;
+      } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        title.innerText = 'Blocked by Windows Privacy Settings';
+        explanation = `
+          <p class="text-rose-400 font-bold mb-1">Error: Permission Denied</p>
+          <p>Windows 10/11 is blocking browser access to the webcam:</p>
+          <ol class="list-decimal pl-4 space-y-1 mt-2 text-slate-300">
+            <li>Open Windows <strong>Settings > Privacy & security > Camera</strong>.</li>
+            <li>Ensure <em>'Camera access'</em> and <em>'Let desktop apps access your camera'</em> are both toggled <strong>ON</strong>.</li>
+            <li>In your browser address bar, click the camera lock icon and set Camera to <strong>Allow</strong>.</li>
+          </ol>`;
+      } else if (error.name === 'OverconstrainedError') {
+        title.innerText = 'Overconstrained Camera Request';
+        explanation = `
+          <p class="text-rose-400 font-bold mb-1">Error: OverconstrainedError</p>
+          <p>The selected resolution or mobile constraint is not supported by your laptop's camera driver.</p>
+          <p class="mt-2 text-slate-300">Switching the starting profile to '480p Safe' or selecting a different device in the hardware selector will bypass this.</p>`;
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        title.innerText = 'No Webcam Detected';
+        explanation = `
+          <p class="text-rose-400 font-bold mb-1">Error: NotFoundError</p>
+          <p>No compatible RGB webcam was detected on this PC. Check your Device Manager or plug in a USB webcam.</p>`;
+      } else {
+        title.innerText = 'Camera Initialization Failed';
+        explanation = `
+          <p class="text-rose-400 font-bold mb-1">Error: ${error.name || 'Unknown'}</p>
+          <p>${error.message || 'The webcam failed to start.'}</p>
+          <p class="mt-2 text-slate-300">Tip: Ensure your browser is running over HTTPS or localhost, which is required for camera streaming.</p>`;
+      }
+
+      body.innerHTML = explanation;
+      modal.classList.remove('hidden');
+    }
+
+    /* -------------------------------------------------------------
+       ADAPTIVE CAMERA CAPTURE (WINDOWS & MOBILE SAFE)
+    -------------------------------------------------------------- */
+    async function acquireCameraStream(preferredQuality, facing, selectedDeviceId) {
+      const isDesktop = isDesktopOrWindows();
       const profiles = [];
+
+      // If user explicitly picked a deviceId, prioritize deviceId without facingMode
+      const hasSpecificDevice = selectedDeviceId && selectedDeviceId !== 'auto';
+
       if (preferredQuality === '1080') {
         profiles.push({ width: { ideal: 1920 }, height: { ideal: 1080 } });
         profiles.push({ width: { ideal: 1280 }, height: { ideal: 720 } });
@@ -504,43 +659,106 @@
       } else {
         profiles.push({ width: { ideal: 640 }, height: { ideal: 480 } });
       }
-      // Absolute baseline fallback: any video
-      profiles.push(true);
+      profiles.push(true); // Raw basic fallback
+
+      let lastError = null;
 
       for (let videoConstraint of profiles) {
         try {
+          const videoOptions = {};
+
+          if (hasSpecificDevice) {
+            videoOptions.deviceId = { exact: selectedDeviceId };
+          } else if (!isDesktop) {
+            // Only apply mobile facingMode when on phones/tablets
+            videoOptions.facingMode = { ideal: facing };
+          }
+
+          if (typeof videoConstraint === 'object') {
+            Object.assign(videoOptions, videoConstraint);
+          }
+
           const constraints = {
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true
-            },
-            video: typeof videoConstraint === 'boolean' ? true : {
-              ...videoConstraint,
-              facingMode: { ideal: facing }
-            }
+            audio: { echoCancellation: true, noiseSuppression: true },
+            video: Object.keys(videoOptions).length > 0 ? videoOptions : true
           };
 
+          console.log('Requesting UserMedia with constraints:', constraints);
           const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
           if (stream.getVideoTracks().length > 0) {
-            console.log('Acquired camera with profile:', videoConstraint);
+            // Successfully acquired camera; refresh device labels with granted permissions
+            refreshDeviceList();
             return stream;
           }
         } catch (err) {
-          console.warn('Constraint profile failed, trying fallback...', err.message);
+          lastError = err;
+          console.warn('Constraint attempt failed, stepping down...', err.name, err.message);
         }
       }
 
-      throw new Error('Unable to acquire camera visual track on this device.');
+      throw lastError || new Error('Could not initialize video track.');
+    }
+
+    /* -------------------------------------------------------------
+       LOCAL SELF-TEST LIVE PREVIEW
+    -------------------------------------------------------------- */
+    async function toggleLocalSelfTest() {
+      const video = document.getElementById('selfTestVideo');
+      const placeholder = document.getElementById('selfTestPlaceholder');
+      const btnText = document.getElementById('testCamBtnText');
+
+      if (selfTestStream) {
+        stopSelfTest();
+        return;
+      }
+
+      btnText.innerText = 'Connecting...';
+      const selectedDevice = document.getElementById('hardwareDeviceSelect').value;
+      const quality = document.getElementById('hostQualitySelect').value;
+      const facing = document.getElementById('hostCameraFacingSelect').value;
+
+      try {
+        selfTestStream = await acquireCameraStream(quality, facing, selectedDevice);
+        video.srcObject = selfTestStream;
+        video.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        await video.play();
+        btnText.innerText = 'Stop Test';
+        showToast('Webcam working! Visual preview confirmed.', 'success');
+      } catch (err) {
+        stopSelfTest();
+        displayHardwareError(err);
+      }
+    }
+
+    function stopSelfTest() {
+      if (selfTestStream) {
+        selfTestStream.getTracks().forEach(t => t.stop());
+        selfTestStream = null;
+      }
+      const video = document.getElementById('selfTestVideo');
+      const placeholder = document.getElementById('selfTestPlaceholder');
+      const btnText = document.getElementById('testCamBtnText');
+      if (video) {
+        video.srcObject = null;
+        video.classList.add('hidden');
+      }
+      if (placeholder) placeholder.classList.remove('hidden');
+      if (btnText) btnText.innerText = 'Test Webcam Now';
     }
 
     /* -------------------------------------------------------------
        HOST BROADCASTER LOGIC
     -------------------------------------------------------------- */
     async function startHostStream() {
+      stopSelfTest();
+
       const roomInput = document.getElementById('hostRoomIdInput').value.trim();
       const pwdInput = document.getElementById('hostPasscodeInput').value.trim();
       const quality = document.getElementById('hostQualitySelect').value;
-      currentFacingMode = document.getElementById('hostCameraSelect').value;
+      const selectedDevice = document.getElementById('hardwareDeviceSelect').value;
+      currentFacingMode = document.getElementById('hostCameraFacingSelect').value;
 
       if (!roomInput) return showToast('Please enter a room name', 'error');
       if (!pwdInput) return showToast('Please enter a passcode', 'error');
@@ -552,13 +770,13 @@
       updateStatus('connecting', 'Acquiring camera...');
 
       try {
-        localStream = await acquireCameraStream(quality, currentFacingMode);
+        localStream = await acquireCameraStream(quality, currentFacingMode, selectedDevice);
         
         const videoPlayer = document.getElementById('mainVideoPlayer');
         videoPlayer.muted = true;
         videoPlayer.srcObject = localStream;
         
-        if (currentFacingMode === 'user') {
+        if (currentFacingMode === 'user' || isDesktopOrWindows()) {
           videoPlayer.classList.add('mirror-mode');
         } else {
           videoPlayer.classList.remove('mirror-mode');
@@ -572,8 +790,8 @@
 
         startDiagnosticsLoop();
       } catch (err) {
-        console.error('Camera capture error:', err);
-        showToast('Camera error: ' + err.message, 'error');
+        console.error('Camera acquisition error:', err);
+        displayHardwareError(err);
         updateStatus('error', 'Camera failed');
       }
     }
@@ -604,7 +822,6 @@
         }
       });
 
-      // Handle Password DataChannel handshake
       peer.on('connection', (conn) => {
         conn.on('data', (data) => {
           if (data && data.type === 'AUTH_REQUEST') {
@@ -627,7 +844,6 @@
         });
       });
 
-      // Answer incoming call with camera stream
       peer.on('call', (call) => {
         call.answer(localStream);
       });
@@ -684,7 +900,6 @@
           if (data.type === 'AUTH_SUCCESS') {
             showToast('Passcode authenticated! Requesting video track...', 'success');
             
-            // Dummy audio track ensures call negotiation starts immediately
             const dummyCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = dummyCtx.createOscillator();
             const dst = dummyCtx.createMediaStreamDestination();
@@ -693,14 +908,12 @@
 
             activeCall = peer.call(hostPeerId, dst.stream);
 
-            // BINDING 1: Direct PeerJS Stream Event
             activeCall.on('stream', (incomingStream) => {
               console.log('Incoming stream via call.on("stream")', incomingStream.getTracks());
               remoteStreamRef = incomingStream;
               bindStreamToReceiver(incomingStream);
             });
 
-            // BINDING 2: Native RTCPeerConnection Track Listener (Handles async video track arrival)
             if (activeCall.peerConnection) {
               activeCall.peerConnection.ontrack = (event) => {
                 console.log('Native ontrack event caught:', event.track.kind);
@@ -757,7 +970,6 @@
       const waitingOverlay = document.getElementById('waitingOverlay');
       const unmuteBanner = document.getElementById('unmutePromptBanner');
 
-      // Hook async track additions (crucial when audio arrives before video packets)
       stream.onaddtrack = (e) => {
         console.log('Stream track added asynchronously:', e.track.kind);
         if (videoPlayer.srcObject !== stream) {
@@ -765,7 +977,6 @@
         }
       };
 
-      // Ensure video is muted initially to satisfy browser autoplay security
       videoPlayer.muted = true;
       videoPlayer.srcObject = stream;
 
@@ -780,7 +991,6 @@
             unmuteBanner.classList.remove('hidden');
           }
 
-          // Monitor if video frames are actually painting, else spin up canvas blitter
           setupDualRendererWatchdog();
         }).catch((err) => {
           console.warn('Direct autoplay prevented by policy:', err);
@@ -796,7 +1006,6 @@
       }
     }
 
-    // Watchdog: If video element has decoded frames but fails to paint visually, activate Canvas Blit
     function setupDualRendererWatchdog() {
       const videoPlayer = document.getElementById('mainVideoPlayer');
       const canvas = document.getElementById('fallbackCanvas');
@@ -805,9 +1014,8 @@
       const watchdogTimer = setInterval(() => {
         checkCount++;
         if (videoPlayer.videoWidth > 0 && videoPlayer.videoHeight > 0) {
-          // Video frames are decoding
           clearInterval(watchdogTimer);
-          startCanvasBlitter(); // Ensure continuous visual blit fallback is primed
+          startCanvasBlitter();
         } else if (checkCount > 10) {
           clearInterval(watchdogTimer);
           startCanvasBlitter();
@@ -833,10 +1041,8 @@
             canvas.height = videoPlayer.videoHeight;
           }
 
-          // Blit current video frame to canvas
           ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
 
-          // If the native video tag isn't rendering pixels (black screen bug), make canvas visible
           if (canvas.classList.contains('hidden')) {
             canvas.classList.remove('hidden');
             document.getElementById('rendererNameTag').innerText = 'CANVAS-2D';
@@ -857,7 +1063,6 @@
       document.getElementById('hudActiveRenderer').innerText = 'Native Video';
     }
 
-    // Manual Force Resync Action
     function forceSyncPipeline() {
       const icon = document.getElementById('forceReloadIcon');
       icon.classList.add('animate-spin');
@@ -954,9 +1159,11 @@
       localStream.getVideoTracks().forEach(t => t.stop());
 
       try {
+        const selectedDevice = document.getElementById('hardwareDeviceSelect').value;
         const newStream = await acquireCameraStream(
           document.getElementById('hostQualitySelect').value,
-          currentFacingMode
+          currentFacingMode,
+          selectedDevice
         );
 
         const newVideoTrack = newStream.getVideoTracks()[0];
@@ -967,13 +1174,12 @@
         localStream.addTrack(newVideoTrack);
         videoPlayer.srcObject = localStream;
 
-        if (currentFacingMode === 'user') {
+        if (currentFacingMode === 'user' || isDesktopOrWindows()) {
           videoPlayer.classList.add('mirror-mode');
         } else {
           videoPlayer.classList.remove('mirror-mode');
         }
 
-        // Replace track across all active WebRTC senders
         if (peer && peer.connections) {
           Object.values(peer.connections).forEach(connectionGroup => {
             connectionGroup.forEach(c => {
@@ -984,9 +1190,9 @@
             });
           });
         }
-        showToast('Switched to ' + (currentFacingMode === 'user' ? 'Front' : 'Back') + ' camera', 'success');
+        showToast('Camera switched', 'success');
       } catch (err) {
-        showToast('Camera switch failed: ' + err.message, 'error');
+        displayHardwareError(err);
       }
     }
 
@@ -1125,6 +1331,7 @@
 
     function disconnectSession() {
       stopCanvasBlitter();
+      stopSelfTest();
       
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
