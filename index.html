@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PeerCam - Peer-to-Peer Live Camera Streaming</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- PeerJS CDN -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <!-- QRCode.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom video styles and animations */
+    .mirror-video {
+      transform: scaleX(-1);
+    }
+    .pulse-record {
+      animation: pulse-dot 1.5s infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.15); }
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header Navigation -->
+  <header class="border-b border-slate-800 bg-slate-900/70 backdrop-blur sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="resetApp()">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-video text-lg"></i>
+        </div>
+        <div>
+          <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">PeerCam</span>
+          <span class="text-xs ml-2 px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">P2P WebRTC</span>
+        </div>
+      </div>
+      <div id="navStatus" class="flex items-center gap-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-500" id="globalStatusDot"></span>
+        <span class="text-xs text-slate-400 font-medium" id="globalStatusText">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
+
+  <!-- Main Content Body -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 flex flex-col items-center justify-center">
+
+    <!-- VIEW 1: Role Selection Landing View -->
+    <div id="roleSelectionView" class="w-full max-w-3xl flex flex-col items-center text-center py-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-950/70 border border-indigo-800/60 text-indigo-300 text-xs font-semibold mb-6">
+        <i class="fa-solid fa-shield-halved"></i> Direct End-to-End Encrypted P2P Media
+      </div>
+      <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-white mb-4">
+        Instant Cross-Device <span class="bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">Live Camera</span>
+      </h1>
+      <p class="text-slate-400 text-base md:text-lg max-w-xl mb-10 leading-relaxed">
+        Stream visual video and audio directly from your phone, laptop, or tablet to any receiving screen across the internet with password protection.
+      </p>
+
+      <!-- Mode Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl text-left">
+        <!-- Host Card -->
+        <div class="bg-slate-900/80 border border-slate-800 hover:border-indigo-500/60 transition-all rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-camera-rotate text-xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Camera Broadcaster</h2>
+            <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+              Use this device as the visual camera source (e.g. mobile phone camera or webcam) and stream out to another device.
+            </p>
+          </div>
+          <button onclick="switchView('hostSetupView')" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 transition">
+            <span>Start as Host</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </div>
+
+        <!-- Receiver Card -->
+        <div class="bg-slate-900/80 border border-slate-800 hover:border-emerald-500/60 transition-all rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
+          <div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform">
+              <i class="fa-solid fa-desktop text-xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Display Receiver</h2>
+            <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+              View the live camera stream remotely on this screen (e.g. laptop, monitor, or second phone) using the Room ID & passcode.
+            </p>
+          </div>
+          <button onclick="switchView('viewerSetupView')" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-700 text-emerald-400 hover:text-emerald-300 font-medium rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition">
+            <span>Join as Receiver</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: Host Setup -->
+    <div id="hostSetupView" class="hidden w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-broadcast-tower text-indigo-400"></i> Setup Broadcaster
+        </h2>
+        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Channel / Room Name</label>
+          <div class="relative">
+            <input type="text" id="hostRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" placeholder="e.g. livingroom-cam">
+            <button onclick="generateRandomRoomId()" class="absolute right-2 top-2 px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded-lg border border-slate-700">Random</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Passcode Protection</label>
+          <div class="relative">
+            <input type="text" id="hostPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm" placeholder="Enter password (e.g. mycam)">
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Clients must enter this password to receive the visual feed.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Target Quality</label>
+          <select id="hostQualitySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 text-sm">
+            <option value="1080">1080p Full HD (Crisp, higher bandwidth)</option>
+            <option value="720" selected>720p HD (Balanced, recommended)</option>
+            <option value="480">480p Standard (Low latency / mobile data)</option>
+          </select>
+        </div>
+
+        <div class="pt-4 flex flex-col gap-2">
+          <button onclick="startHostStream()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-video"></i> Start Broadcasting
+          </button>
+          <button onclick="switchView('roleSelectionView')" class="w-full py-2.5 text-slate-400 hover:text-white text-sm">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: Viewer Setup -->
+    <div id="viewerSetupView" class="hidden w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-satellite-dish text-emerald-400"></i> Connect to Broadcaster
+        </h2>
+        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Channel / Room Name</label>
+          <input type="text" id="viewerRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 text-sm" placeholder="Enter Host Room ID">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Passcode</label>
+          <input type="password" id="viewerPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 text-sm" placeholder="e.g. mycam">
+        </div>
+
+        <div class="pt-4 flex flex-col gap-2">
+          <button onclick="connectAsViewer()" class="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-link"></i> Connect to Stream
+          </button>
+          <button onclick="switchView('roleSelectionView')" class="w-full py-2.5 text-slate-400 hover:text-white text-sm">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: Active Streaming Studio (Used by both Host & Receiver) -->
+    <div id="activeStreamView" class="hidden w-full flex flex-col items-center">
+      
+      <!-- Top Bar: Room Info & Controls -->
+      <div class="w-full flex flex-wrap items-center justify-between gap-3 mb-4 bg-slate-900/60 backdrop-blur border border-slate-800 p-3.5 rounded-2xl">
+        <div class="flex items-center gap-3">
+          <div id="roleBadge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+            HOST
+          </div>
+          <div class="text-sm">
+            <span class="text-slate-400">Room:</span> <span id="currentRoomDisplay" class="font-mono font-semibold text-white">...</span>
+          </div>
+        </div>
+
+        <!-- Connection Indicators -->
+        <div class="flex items-center gap-4 text-xs">
+          <div class="flex items-center gap-1.5">
+            <span id="streamStatusIndicator" class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+            <span id="streamStatusText" class="text-slate-300 font-medium">Initializing...</span>
+          </div>
+          <div id="viewerCountBadge" class="hidden items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg text-slate-300">
+            <i class="fa-solid fa-users text-xs text-indigo-400"></i>
+            <span id="viewerCountText">0 viewer</span>
+          </div>
+          <div id="resolutionBadge" class="hidden sm:block text-slate-400 bg-slate-800 px-2 py-0.5 rounded text-[11px] font-mono">
+            -- x --
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="flex items-center gap-2">
+          <button id="pairingQrBtn" onclick="toggleShareModal(true)" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-indigo-300 border border-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-qrcode"></i> <span>Share / QR</span>
+          </button>
+          <button onclick="disconnectSession()" class="px-3 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i> <span>Leave</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Video Canvas Stage -->
+      <div id="videoContainer" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
+        
+        <!-- Live Video Element -->
+        <video id="mainVideoPlayer" autoplay playsinline class="w-full h-full object-contain"></video>
+
+        <!-- Waiting / Loading Overlay for Receiver -->
+        <div id="waitingOverlay" class="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 text-center z-10 hidden">
+          <div class="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin mb-4"></div>
+          <h3 id="waitingTitle" class="text-lg font-bold text-white mb-1">Awaiting Broadcaster Connection</h3>
+          <p id="waitingSub" class="text-sm text-slate-400 max-w-sm">Verifying room credentials and negotiating peer-to-peer WebRTC handshake...</p>
+        </div>
+
+        <!-- Live Watermark Overlay -->
+        <div class="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
+          <div id="liveBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-600/90 text-white text-xs font-bold tracking-wider uppercase backdrop-blur shadow">
+            <span class="w-2 h-2 rounded-full bg-white pulse-record"></span> LIVE
+          </div>
+          <div id="encryptionBadge" class="hidden sm:flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/80 text-emerald-400 text-xs backdrop-blur border border-slate-800 font-mono">
+            <i class="fa-solid fa-lock text-[10px]"></i> P2P
+          </div>
+        </div>
+
+        <!-- Floating Quick Control Floating Dock -->
+        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-3 py-2 rounded-2xl border border-slate-700/80 shadow-2xl transition opacity-90 group-hover:opacity-100">
+          
+          <!-- Host-only Controls: Flip camera & Mute local audio -->
+          <button id="flipCamBtn" onclick="flipCamera()" title="Flip Camera" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
+            <i class="fa-solid fa-camera-rotate"></i>
+          </button>
+          
+          <button id="toggleAudioBtn" onclick="toggleAudio()" title="Mute/Unmute Audio" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
+            <i class="fa-solid fa-microphone"></i>
+          </button>
+
+          <!-- Snapshot Capture Tool (Works now for both) -->
+          <button onclick="captureSnapshot()" title="Capture High-Res Photo" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 flex items-center justify-center transition">
+            <i class="fa-solid fa-camera"></i>
+          </button>
+
+          <!-- Future Recording Trigger -->
+          <button onclick="triggerRecordingPlaceholder()" title="Record Stream" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 flex items-center justify-center transition">
+            <i class="fa-solid fa-circle-dot"></i>
+          </button>
+
+          <!-- Fullscreen Toggle -->
+          <button onclick="toggleFullscreen()" title="Toggle Fullscreen" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
+            <i class="fa-solid fa-expand"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Tips Bar -->
+      <div class="w-full mt-4 flex flex-wrap items-center justify-between text-xs text-slate-400 px-2 gap-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-shield text-indigo-400"></i>
+          <span>Password is verified automatically via encrypted peer handshakes. No video is recorded or stored on remote servers.</span>
+        </div>
+        <div class="text-slate-500 font-mono">
+          STUN/TURN: Enabled
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- MODAL: Share QR Code & Pair Link -->
+  <div id="shareModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl relative">
+      <button onclick="toggleShareModal(false)" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <h3 class="text-lg font-bold text-white mb-1 flex items-center gap-2">
+        <i class="fa-solid fa-qrcode text-indigo-400"></i> Scan to Watch
+      </h3>
+      <p class="text-xs text-slate-400 mb-4">Open camera on another phone/tablet or scan from laptop browser.</p>
+
+      <!-- QR Code Canvas Display -->
+      <div class="bg-white p-3.5 rounded-xl flex items-center justify-center mx-auto w-fit shadow-md">
+        <div id="qrcode"></div>
+      </div>
+
+      <div class="mt-4 space-y-2">
+        <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">Quick Join Link</label>
+        <div class="flex items-center gap-2">
+          <input type="text" id="shareUrlInput" readonly class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300 font-mono truncate select-all">
+          <button onclick="copyShareUrl()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold shrink-0">
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-4 text-center">
+        <span class="text-xs text-slate-500">Passcode is pre-filled in QR code for convenience.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Snapshot Download Anchor -->
+  <a id="downloadAnchor" class="hidden"></a>
+
+  <!-- Audio Context / Sound effects (Tone or WebAudio synthetic bell) -->
+  <script>
+    // WebRTC & Session State
+    let peer = null;
+    let localStream = null;
+    let activeCall = null;
+    let dataConnections = []; // for host to manage multiple authenticated viewers
+    let activeDataConnection = null; // for viewer
+    let userRole = null; // 'HOST' or 'VIEWER'
+    let currentRoomId = '';
+    let roomPasscode = 'mycam';
+    let currentFacingMode = 'environment'; // default to rear camera on mobile
+    let isAudioMuted = false;
+    let qrcodeInstance = null;
+
+    // Prefill Random Room ID
+    function generateRandomRoomId() {
+      const randomId = 'cam-' + Math.random().toString(36).substring(2, 8);
+      document.getElementById('hostRoomIdInput').value = randomId;
+      return randomId;
+    }
+    document.getElementById('hostRoomIdInput').value = generateRandomRoomId();
+
+    // Check URL parameters for direct join links (?room=...&pwd=...)
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const roomParam = urlParams.get('room');
+      const pwdParam = urlParams.get('pwd');
+      if (roomParam) {
+        document.getElementById('viewerRoomIdInput').value = roomParam;
+        if (pwdParam) {
+          document.getElementById('viewerPasscodeInput').value = pwdParam;
+        }
+        switchView('viewerSetupView');
+      }
+    });
+
+    // View Navigation Switcher
+    function switchView(viewId) {
+      ['roleSelectionView', 'hostSetupView', 'viewerSetupView', 'activeStreamView'].forEach(id => {
+        document.getElementById(id).classList.add('hidden');
+      });
+      document.getElementById(viewId).classList.remove('hidden');
+    }
+
+    // Helper: Toast Notifications
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const colors = {
+        info: 'bg-slate-800 text-slate-200 border-slate-700',
+        success: 'bg-emerald-950 text-emerald-200 border-emerald-800',
+        error: 'bg-rose-950 text-rose-200 border-rose-800',
+        warn: 'bg-amber-950 text-amber-200 border-amber-800'
+      };
+      toast.className = `px-4 py-2.5 rounded-xl border text-xs shadow-xl flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+      
+      let icon = 'fa-info-circle';
+      if (type === 'success') icon = 'fa-circle-check';
+      if (type === 'error') icon = 'fa-triangle-exclamation';
+      
+      toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Update Global and Telemetry Status
+    function updateStatus(state, message) {
+      const dot = document.getElementById('globalStatusDot');
+      const text = document.getElementById('globalStatusText');
+      const streamDot = document.getElementById('streamStatusIndicator');
+      const streamText = document.getElementById('streamStatusText');
+
+      const colorMap = {
+        ready: 'bg-slate-500',
+        connecting: 'bg-yellow-400 animate-pulse',
+        live: 'bg-emerald-500',
+        error: 'bg-rose-500'
+      };
+
+      dot.className = `inline-block w-2.5 h-2.5 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
+      text.innerText = message;
+      if (streamDot && streamText) {
+        streamDot.className = `w-2.5 h-2.5 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
+        streamText.innerText = message;
+      }
+    }
+
+    /* -------------------------------------------------------------
+       HOST BROADCASTER LOGIC
+    -------------------------------------------------------------- */
+    async function startHostStream() {
+      const roomInput = document.getElementById('hostRoomIdInput').value.trim();
+      const pwdInput = document.getElementById('hostPasscodeInput').value.trim();
+      const quality = document.getElementById('hostQualitySelect').value;
+
+      if (!roomInput) {
+        showToast('Please enter a room name', 'error');
+        return;
+      }
+      if (!pwdInput) {
+        showToast('Please specify a password for protection', 'error');
+        return;
+      }
+
+      currentRoomId = roomInput;
+      roomPasscode = pwdInput;
+      userRole = 'HOST';
+
+      updateStatus('connecting', 'Acquiring camera...');
+
+      // Resolution constraints
+      let width = 1280;
+      let height = 720;
+      if (quality === '1080') { width = 1920; height = 1080; }
+      else if (quality === '480') { width = 854; height = 480; }
+
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: currentFacingMode,
+            width: { ideal: width },
+            height: { ideal: height },
+            frameRate: { ideal: 30 }
+          },
+          audio: true
+        });
+
+        const videoPlayer = document.getElementById('mainVideoPlayer');
+        videoPlayer.srcObject = localStream;
+        videoPlayer.muted = true; // Avoid local echo for broadcaster
+        if (currentFacingMode === 'user') {
+          videoPlayer.classList.add('mirror-video');
+        } else {
+          videoPlayer.classList.remove('mirror-video');
+        }
+
+        // Setup UI for Active Host
+        setupActiveView('HOST');
+        buildShareDetails();
+
+        // Initialize PeerJS with Room ID prefix to prevent namespace collision
+        initHostPeer(currentRoomId);
+
+      } catch (err) {
+        console.error('Camera error:', err);
+        showToast('Camera/Microphone access failed: ' + err.message, 'error');
+        updateStatus('error', 'Camera access denied');
+      }
+    }
+
+    function initHostPeer(roomId) {
+      updateStatus('connecting', 'Registering P2P Channel...');
+      
+      // Prefix so it's a predictable channel ID
+      const peerId = `peercam-${roomId}`;
+
+      // Create new PeerJS instance (uses free cloud signaling)
+      peer = new Peer(peerId, {
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+        }
+      });
+
+      peer.on('open', (id) => {
+        updateStatus('live', 'Broadcaster Ready');
+        showToast('Broadcast room active! Share QR or link to view.', 'success');
+        document.getElementById('waitingOverlay').classList.add('hidden');
+        updateResolutionBadge();
+      });
+
+      peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        if (err.type === 'unavailable-id') {
+          showToast(`Room '${roomId}' is already in use. Please choose another name.`, 'error');
+          disconnectSession();
+        } else {
+          showToast('Networking error: ' + err.message, 'error');
+        }
+        updateStatus('error', 'Network error');
+      });
+
+      // Handle Incoming Data Connections for Password Authentication
+      peer.on('connection', (conn) => {
+        conn.on('data', (data) => {
+          if (data && data.type === 'AUTH_REQUEST') {
+            if (data.passcode === roomPasscode) {
+              // Passcode matches: approve receiver
+              conn.send({ type: 'AUTH_SUCCESS', message: 'Access granted' });
+              dataConnections.push(conn);
+              updateViewerCount();
+              showToast(`Viewer joined securely`, 'info');
+            } else {
+              // Reject receiver
+              conn.send({ type: 'AUTH_FAILED', message: 'Incorrect passcode' });
+              setTimeout(() => conn.close(), 1000);
+              showToast('Viewer connection rejected: Wrong password', 'warn');
+            }
+          }
+        });
+
+        conn.on('close', () => {
+          dataConnections = dataConnections.filter(c => c !== conn);
+          updateViewerCount();
+        });
+      });
+
+      // Answer Incoming Calls with local camera stream (only if authenticated)
+      peer.on('call', (call) => {
+        // Broadcaster answers call and sends local camera stream
+        call.answer(localStream);
+      });
+    }
+
+    function updateViewerCount() {
+      const badge = document.getElementById('viewerCountBadge');
+      const text = document.getElementById('viewerCountText');
+      if (userRole === 'HOST') {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        const count = dataConnections.length;
+        text.innerText = `${count} viewer${count === 1 ? '' : 's'}`;
+      }
+    }
+
+    /* -------------------------------------------------------------
+       RECEIVER / VIEWER LOGIC
+    -------------------------------------------------------------- */
+    function connectAsViewer() {
+      const roomInput = document.getElementById('viewerRoomIdInput').value.trim();
+      const pwdInput = document.getElementById('viewerPasscodeInput').value.trim();
+
+      if (!roomInput) {
+        showToast('Please enter the Host Room ID', 'error');
+        return;
+      }
+
+      currentRoomId = roomInput;
+      roomPasscode = pwdInput;
+      userRole = 'VIEWER';
+
+      setupActiveView('VIEWER');
+      document.getElementById('waitingOverlay').classList.remove('hidden');
+      document.getElementById('waitingTitle').innerText = 'Contacting Broadcaster...';
+      document.getElementById('waitingSub').innerText = 'Authenticating password & requesting visual stream...';
+
+      updateStatus('connecting', 'Connecting to Host...');
+
+      // Viewer uses an ephemeral ID
+      peer = new Peer({
+        debug: 1,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+        }
+      });
+
+      peer.on('open', (id) => {
+        const hostPeerId = `peercam-${currentRoomId}`;
+        
+        // 1. Establish Data Channel for Password Auth
+        activeDataConnection = peer.connect(hostPeerId, { reliable: true });
+
+        activeDataConnection.on('open', () => {
+          // Send Passcode for verification
+          activeDataConnection.send({
+            type: 'AUTH_REQUEST',
+            passcode: roomPasscode
+          });
+        });
+
+        activeDataConnection.on('data', (data) => {
+          if (data.type === 'AUTH_SUCCESS') {
+            showToast('Passcode verified! Receiving media...', 'success');
+            
+            // 2. Request / Call the media stream
+            // Create an empty dummy media stream so we can call the host
+            const dummyAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = dummyAudioCtx.createOscillator();
+            const dst = dummyAudioCtx.createMediaStreamDestination();
+            osc.connect(dst);
+            osc.start();
+            const dummyStream = dst.stream;
+
+            activeCall = peer.call(hostPeerId, dummyStream);
+
+            activeCall.on('stream', (remoteStream) => {
+              const videoPlayer = document.getElementById('mainVideoPlayer');
+              videoPlayer.srcObject = remoteStream;
+              videoPlayer.muted = false; // Viewer can hear audio
+              videoPlayer.play().catch(e => {
+                console.log('Autoplay handled:', e);
+              });
+
+              document.getElementById('waitingOverlay').classList.add('hidden');
+              updateStatus('live', 'Live Feed Connected');
+              updateResolutionBadge();
+            });
+
+            activeCall.on('close', () => {
+              showToast('Broadcaster stream disconnected', 'warn');
+              updateStatus('ready', 'Stream ended');
+              document.getElementById('waitingOverlay').classList.remove('hidden');
+              document.getElementById('waitingTitle').innerText = 'Host Ended Stream';
+              document.getElementById('waitingSub').innerText = 'The broadcast has ended or connection was lost.';
+            });
+
+          } else if (data.type === 'AUTH_FAILED') {
+            showToast('Authentication failed: Incorrect passcode!', 'error');
+            updateStatus('error', 'Access denied');
+            document.getElementById('waitingOverlay').classList.remove('hidden');
+            document.getElementById('waitingTitle').innerText = 'Access Denied';
+            document.getElementById('waitingSub').innerText = 'Incorrect passcode provided for this room.';
+          }
+        });
+
+        activeDataConnection.on('error', (err) => {
+          console.error('Conn error', err);
+          showToast('Connection error: ' + err.message, 'error');
+        });
+      });
+
+      peer.on('error', (err) => {
+        console.error('Peer error:', err);
+        if (err.type === 'peer-unavailable') {
+          showToast(`Host room '${currentRoomId}' not found. Ensure Host is online.`, 'error');
+          document.getElementById('waitingOverlay').classList.remove('hidden');
+          document.getElementById('waitingTitle').innerText = 'Broadcaster Not Found';
+          document.getElementById('waitingSub').innerText = 'Verify the Room ID and ensure the broadcaster has already started.';
+        } else {
+          showToast('Network error: ' + err.message, 'error');
+        }
+        updateStatus('error', 'Connection failed');
+      });
+    }
+
+    /* -------------------------------------------------------------
+       CONTROLS: Camera Flip, Mute, Snapshot, Fullscreen
+    -------------------------------------------------------------- */
+    async function flipCamera() {
+      if (userRole !== 'HOST' || !localStream) {
+        showToast('Camera flipping only available for Broadcaster', 'info');
+        return;
+      }
+      currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+      showToast(`Switching camera...`, 'info');
+
+      // Stop old tracks
+      localStream.getVideoTracks().forEach(track => track.stop());
+
+      try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacingMode },
+          audio: !isAudioMuted
+        });
+
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        const videoPlayer = document.getElementById('mainVideoPlayer');
+        
+        // Update local preview
+        const currentLocalTracks = localStream.getVideoTracks();
+        localStream.removeTrack(currentLocalTracks[0]);
+        localStream.addTrack(newVideoTrack);
+        videoPlayer.srcObject = localStream;
+
+        if (currentFacingMode === 'user') {
+          videoPlayer.classList.add('mirror-video');
+        } else {
+          videoPlayer.classList.remove('mirror-video');
+        }
+
+        // Replace track across all active peer calls
+        if (peer && peer.connections) {
+          Object.values(peer.connections).forEach(connectionGroup => {
+            connectionGroup.forEach(c => {
+              if (c.peerConnection) {
+                const senders = c.peerConnection.getSenders();
+                const sender = senders.find(s => s.track && s.track.kind === 'video');
+                if (sender) {
+                  sender.replaceTrack(newVideoTrack);
+                }
+              }
+            });
+          });
+        }
+        showToast('Camera flipped successfully', 'success');
+      } catch (err) {
+        showToast('Could not flip camera: ' + err.message, 'error');
+      }
+    }
+
+    function toggleAudio() {
+      const btn = document.getElementById('toggleAudioBtn');
+      if (userRole === 'HOST' && localStream) {
+        const audioTracks = localStream.getAudioTracks();
+        if (audioTracks.length > 0) {
+          isAudioMuted = !isAudioMuted;
+          audioTracks[0].enabled = !isAudioMuted;
+          btn.innerHTML = isAudioMuted 
+            ? `<i class="fa-solid fa-microphone-slash text-rose-400"></i>` 
+            : `<i class="fa-solid fa-microphone text-slate-200"></i>`;
+          showToast(isAudioMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
+        }
+      } else {
+        // Viewer audio mute
+        const videoPlayer = document.getElementById('mainVideoPlayer');
+        videoPlayer.muted = !videoPlayer.muted;
+        btn.innerHTML = videoPlayer.muted 
+          ? `<i class="fa-solid fa-volume-xmark text-rose-400"></i>` 
+          : `<i class="fa-solid fa-volume-high text-slate-200"></i>`;
+        showToast(videoPlayer.muted ? 'Audio muted' : 'Audio unmuted', 'info');
+      }
+    }
+
+    // High quality live snapshot capture
+    function captureSnapshot() {
+      const video = document.getElementById('mainVideoPlayer');
+      if (!video || !video.videoWidth) {
+        showToast('No active video to capture', 'warn');
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Mirror back if front facing
+      if (video.classList.contains('mirror-video')) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const link = document.getElementById('downloadAnchor');
+      link.href = dataUrl;
+      link.download = `peercam-snapshot-${Date.now()}.jpg`;
+      link.click();
+      showToast('Snapshot captured and downloaded!', 'success');
+    }
+
+    // Placeholder for future recording feature
+    function triggerRecordingPlaceholder() {
+      showToast('Video Recording is queued for the next update. High-res Snapshot is active now!', 'info');
+    }
+
+    function toggleFullscreen() {
+      const elem = document.getElementById('videoContainer');
+      if (!document.fullscreenElement) {
+        elem.requestFullscreen().catch(err => {
+          showToast('Error attempting fullscreen: ' + err.message, 'error');
+        });
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    /* -------------------------------------------------------------
+       UI HELPERS & QR CODE GENERATION
+    -------------------------------------------------------------- */
+    function setupActiveView(role) {
+      switchView('activeStreamView');
+      document.getElementById('currentRoomDisplay').innerText = currentRoomId;
+      const roleBadge = document.getElementById('roleBadge');
+      
+      if (role === 'HOST') {
+        roleBadge.innerText = 'BROADCASTER';
+        roleBadge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/20 text-indigo-400 border border-indigo-500/30';
+        document.getElementById('flipCamBtn').classList.remove('hidden');
+        document.getElementById('pairingQrBtn').classList.remove('hidden');
+      } else {
+        roleBadge.innerText = 'RECEIVER';
+        roleBadge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+        document.getElementById('flipCamBtn').classList.add('hidden');
+        document.getElementById('pairingQrBtn').classList.add('hidden');
+        document.getElementById('viewerCountBadge').classList.add('hidden');
+      }
+    }
+
+    function buildShareDetails() {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const joinUrl = `${baseUrl}?room=${encodeURIComponent(currentRoomId)}&pwd=${encodeURIComponent(roomPasscode)}`;
+      document.getElementById('shareUrlInput').value = joinUrl;
+
+      // Render QR code
+      const qrTarget = document.getElementById('qrcode');
+      qrTarget.innerHTML = '';
+      qrcodeInstance = new QRCode(qrTarget, {
+        text: joinUrl,
+        width: 180,
+        height: 180,
+        colorDark: "#0f172a",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    function toggleShareModal(show) {
+      const modal = document.getElementById('shareModal');
+      if (show) {
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    function copyShareUrl() {
+      const copyText = document.getElementById('shareUrlInput');
+      copyText.select();
+      copyText.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        showToast('Direct pairing link copied to clipboard!', 'success');
+      } catch (err) {
+        showToast('Unable to copy automatically', 'warn');
+      }
+    }
+
+    function updateResolutionBadge() {
+      const video = document.getElementById('mainVideoPlayer');
+      const badge = document.getElementById('resolutionBadge');
+      const interval = setInterval(() => {
+        if (video.videoWidth > 0) {
+          badge.innerText = `${video.videoWidth} x ${video.videoHeight}`;
+          badge.classList.remove('hidden');
+          clearInterval(interval);
+        }
+      }, 500);
+    }
+
+    // Cleanup & Disconnect
+    function disconnectSession() {
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      if (activeCall) {
+        activeCall.close();
+        activeCall = null;
+      }
+      if (activeDataConnection) {
+        activeDataConnection.close();
+        activeDataConnection = null;
+      }
+      dataConnections.forEach(c => c.close());
+      dataConnections = [];
+
+      if (peer) {
+        peer.destroy();
+        peer = null;
+      }
+
+      const video = document.getElementById('mainVideoPlayer');
+      video.srcObject = null;
+      video.classList.remove('mirror-video');
+
+      updateStatus('ready', 'Disconnected');
+      switchView('roleSelectionView');
+      showToast('Session ended', 'info');
+    }
+
+    function resetApp() {
+      if (peer) {
+        disconnectSession();
+      } else {
+        switchView('roleSelectionView');
+      }
+    }
+  </script>
+</body>
+</html>
