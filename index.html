@@ -3,1373 +3,571 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PeerCam Pro - Universal Windows & Mobile P2P Stream</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  <!-- PeerJS CDN -->
+  <title>CamLink P2P - Android Live Cam</title>
+  
+  <!-- PeerJS WebRTC & QR Code Generator -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
-  <!-- QRCode.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
   <style>
-    .mirror-mode { transform: scaleX(-1); }
-    .pulse-live { animation: pulse-dot 1.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
-    @keyframes pulse-dot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.3; transform: scale(1.15); }
+    :root {
+      --bg: #0d1117;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #f0f6fc;
+      --muted: #8b949e;
+      --primary: #238636;
+      --primary-hover: #2ea043;
+      --blue: #2f81f7;
+      --danger: #da3633;
     }
-    .font-hud {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    p.subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-bottom: 24px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary { background: var(--primary); color: #fff; width: 100%; }
+    .btn-primary:active { background: var(--primary-hover); }
+    .btn-blue { background: var(--blue); color: #fff; width: 100%; }
+    .btn-secondary { background: #21262d; color: var(--text); border: 1px solid var(--border); width: 100%; }
+    .btn-danger { background: var(--danger); color: #fff; }
+
+    input {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      margin-bottom: 14px;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--blue);
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Video Playback Screens */
+    .viewport {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 100;
+      flex-direction: column;
+    }
+
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+
+    .floating-bar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .floating-bar * {
+      pointer-events: auto;
+    }
+
+    .status-pill {
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      border: 1px solid rgba(255,255,255,0.15);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background: #238636;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    .controls-bottom {
+      position: absolute;
+      bottom: 24px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      padding: 0 16px;
+      z-index: 10;
+    }
+
+    .circle-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      padding: 0;
+      background: rgba(22, 27, 34, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 1.2rem;
+    }
+
+    #qrBox {
+      background: #fff;
+      padding: 12px;
+      border-radius: 12px;
+      display: inline-block;
+      margin: 16px auto;
+    }
+
+    .unmute-alert {
+      position: absolute;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2f81f7;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 30px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      z-index: 15;
+      display: none;
+      cursor: pointer;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans flex flex-col antialiased selection:bg-cyan-500 selection:text-black select-none">
+<body>
 
-  <!-- Header Navigation -->
-  <header class="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-      <div class="flex items-center space-x-3 cursor-pointer" onclick="resetApp()">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/20">
-          <i class="fa-solid fa-eye text-sm"></i>
-        </div>
-        <div>
-          <span class="font-extrabold text-base tracking-tight bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-300 bg-clip-text text-transparent">PEERCAM</span>
-          <span class="text-[10px] ml-1.5 px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 font-mono border border-cyan-900/50">WIN+MOBILE</span>
-        </div>
-      </div>
-      
-      <div class="flex items-center gap-3">
-        <button id="toggleHudBtn" onclick="toggleDiagnosticsHud()" class="hidden px-2.5 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono flex items-center gap-1.5">
-          <i class="fa-solid fa-chart-line text-[10px] text-cyan-400"></i> HUD
-        </button>
-        <div id="navStatus" class="flex items-center gap-2 bg-slate-900 px-2.5 py-1 rounded-full border border-slate-800">
-          <span class="inline-block w-2 h-2 rounded-full bg-slate-500" id="globalStatusDot"></span>
-          <span class="text-xs text-slate-400 font-medium" id="globalStatusText">Ready</span>
-        </div>
-      </div>
-    </div>
-  </header>
+  <!-- Screen 1: Mode Selection / Setup -->
+  <div class="container" id="setupCard">
+    <div class="card">
+      <h1>CamLink P2P</h1>
+      <p class="subtitle">Direct Android-to-Android Camera Streaming</p>
 
-  <!-- Notification Toast Container -->
-  <div id="toastContainer" class="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-sm pointer-events-none"></div>
-
-  <!-- Windows Hardware Troubleshooting Banner / Modal -->
-  <div id="hardwareErrorModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-rose-800/80 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
-      <div class="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl mb-4 border border-rose-500/30">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-      </div>
-      <h3 id="hwErrorTitle" class="text-lg font-bold text-white mb-2">Webcam Access Restricted</h3>
-      <div id="hwErrorBody" class="text-xs text-slate-300 leading-relaxed space-y-2 mb-6 bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono">
-        <!-- Error text dynamically populated -->
-      </div>
-      <div class="flex gap-2">
-        <button onclick="document.getElementById('hardwareErrorModal').classList.add('hidden')" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl border border-slate-700">
-          Dismiss
-        </button>
-        <button onclick="refreshDeviceList(); document.getElementById('hardwareErrorModal').classList.add('hidden');" class="w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-black text-xs font-bold rounded-xl shadow-lg">
-          Re-scan Cameras
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Main View Stage -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-3 md:p-6 flex flex-col items-center justify-center">
-
-    <!-- VIEW 1: Role Selection Landing -->
-    <div id="roleSelectionView" class="w-full max-w-3xl flex flex-col items-center text-center py-6">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/50 border border-cyan-800/40 text-cyan-400 text-xs font-mono mb-4">
-        <i class="fa-solid fa-laptop-code"></i> Windows & Mobile WebRTC Engine
-      </div>
-      <h1 class="text-3xl md:text-5xl font-black tracking-tight text-white mb-3">
-        Direct Peer-to-Peer <span class="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">Camera Feed</span>
-      </h1>
-      <p class="text-slate-400 text-sm md:text-base max-w-xl mb-8 leading-relaxed">
-        Live camera streaming between Windows laptops, phones, and tablets with direct hardware selector, low-latency visual engine, and zero server recording.
-      </p>
-
-      <!-- Selection Cards -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5 w-full max-w-2xl text-left">
-        <!-- Broadcaster Card -->
-        <div class="bg-slate-900/70 border border-slate-800 hover:border-cyan-500/50 transition-all duration-200 rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-              <i class="fa-solid fa-camera text-xl"></i>
-            </div>
-            <h2 class="text-xl font-bold text-white mb-1.5">Host Camera</h2>
-            <p class="text-slate-400 text-xs leading-relaxed mb-6">
-              Transmit live video and microphone audio from this device (Windows laptop webcam, Android, or iPhone).
-            </p>
-          </div>
-          <button onclick="openHostSetup()" class="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 active:bg-cyan-700 text-black font-bold text-sm rounded-xl shadow-lg shadow-cyan-600/20 flex items-center justify-center gap-2 transition">
-            <span>Broadcast Camera</span>
-            <i class="fa-solid fa-arrow-right text-xs"></i>
-          </button>
-        </div>
-
-        <!-- Viewer Card -->
-        <div class="bg-slate-900/70 border border-slate-800 hover:border-indigo-500/50 transition-all duration-200 rounded-2xl p-6 shadow-xl flex flex-col justify-between group">
-          <div>
-            <div class="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center mb-4 group-hover:scale-105 transition-transform">
-              <i class="fa-solid fa-display text-xl"></i>
-            </div>
-            <h2 class="text-xl font-bold text-white mb-1.5">Receiver Screen</h2>
-            <p class="text-slate-400 text-xs leading-relaxed mb-6">
-              Watch the incoming visual video live on this laptop or device with passcode security and zero recording.
-            </p>
-          </div>
-          <button onclick="switchView('viewerSetupView')" class="w-full py-3 px-4 bg-slate-800 hover:bg-slate-700 active:bg-slate-800 text-cyan-400 font-bold text-sm rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition">
-            <span>Connect & Watch</span>
-            <i class="fa-solid fa-arrow-right text-xs"></i>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- VIEW 2: Host Broadcaster Setup (With Windows Hardware Selector) -->
-    <div id="hostSetupView" class="hidden w-full max-w-lg bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-800">
-        <h2 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-tower-broadcast text-cyan-400"></i> Setup Broadcaster
-        </h2>
-        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+      <div class="btn-group">
+        <button class="btn-primary" id="btnModeHost" onclick="switchMode('host')">Host Camera</button>
+        <button class="btn-secondary" id="btnModeViewer" onclick="switchMode('viewer')">Viewer</button>
       </div>
 
-      <div class="space-y-4 text-sm">
-        <!-- Room ID & Passcode -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-mono text-slate-400 mb-1">ROOM CHANNEL ID</label>
-            <div class="relative">
-              <input type="text" id="hostRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-cyan-500 outline-none text-xs" placeholder="e.g. cam-789">
-              <button onclick="generateRandomRoomId()" class="absolute right-1 top-1 px-2 py-1 text-[10px] bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg border border-slate-700 font-mono">New</button>
-            </div>
-          </div>
-          <div>
-            <label class="block text-xs font-mono text-slate-400 mb-1">PASSCODE</label>
-            <input type="text" id="hostPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white font-mono focus:border-cyan-500 outline-none text-xs" placeholder="mycam">
-          </div>
-        </div>
-
-        <!-- Dedicated Windows Hardware Device Selector -->
-        <div>
-          <div class="flex items-center justify-between mb-1">
-            <label class="block text-xs font-mono text-slate-400">SELECT WEBCAM HARDWARE</label>
-            <button onclick="refreshDeviceList()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1">
-              <i class="fa-solid fa-rotate-right text-[10px]"></i> Re-scan Devices
-            </button>
-          </div>
-          <select id="hardwareDeviceSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:border-cyan-500 outline-none text-xs font-mono">
-            <option value="auto">Auto-detect default camera</option>
-          </select>
-          <p class="text-[11px] text-slate-500 mt-1">
-            Windows laptops: pick your integrated RGB webcam if your screen shows black (avoids infrared / Windows Hello sensor).
-          </p>
-        </div>
-
-        <!-- Resolution & Lens Preset (Mobile) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-mono text-slate-400 mb-1">MOBILE LENS FACING</label>
-            <select id="hostCameraFacingSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-cyan-500 outline-none text-xs">
-              <option value="user" selected>Front Camera / Webcam</option>
-              <option value="environment">Back Camera (Phone)</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-xs font-mono text-slate-400 mb-1">QUALITY PROFILE</label>
-            <select id="hostQualitySelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-cyan-500 outline-none text-xs">
-              <option value="720" selected>720p HD (Recommended)</option>
-              <option value="480">480p Safe (Lowest latency)</option>
-              <option value="1080">1080p FHD (High CPU)</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Inline Live Webcam Self-Test Preview Box -->
-        <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col items-center">
-          <div class="w-full flex items-center justify-between mb-2">
-            <span class="text-xs font-mono text-slate-400">HARDWARE TEST PREVIEW</span>
-            <button id="testCamBtn" onclick="toggleLocalSelfTest()" class="px-2.5 py-1 text-[11px] rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 font-mono flex items-center gap-1.5">
-              <i class="fa-solid fa-vial text-[10px]"></i> <span id="testCamBtnText">Test Webcam Now</span>
-            </button>
-          </div>
-          <div class="relative w-full aspect-video bg-black rounded-lg overflow-hidden border border-slate-800 flex items-center justify-center">
-            <video id="selfTestVideo" autoplay playsinline webkit-playsinline muted class="w-full h-full object-contain hidden"></video>
-            <div id="selfTestPlaceholder" class="text-center p-4">
-              <i class="fa-solid fa-video text-slate-700 text-2xl mb-1"></i>
-              <p class="text-[11px] text-slate-500">Click 'Test Webcam Now' to verify Windows camera feed locally.</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Start Broadcast Button -->
-        <div class="pt-2 flex flex-col gap-2">
-          <button onclick="startHostStream()" class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-black font-bold rounded-xl shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-play"></i> Start Broadcasting Feed
-          </button>
-          <button onclick="stopSelfTest(); switchView('roleSelectionView');" class="w-full py-1.5 text-slate-400 hover:text-white text-xs">Cancel</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- VIEW 3: Viewer Setup -->
-    <div id="viewerSetupView" class="hidden w-full max-w-md bg-slate-900/90 border border-slate-800 rounded-2xl p-6 shadow-2xl">
-      <div class="flex items-center justify-between mb-5 pb-3 border-b border-slate-800">
-        <h2 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-satellite text-indigo-400"></i> Receiver Connect
-        </h2>
-        <button onclick="switchView('roleSelectionView')" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-
-      <div class="space-y-4 text-sm">
-        <div>
-          <label class="block text-xs font-mono text-slate-400 mb-1">HOST ROOM ID</label>
-          <input type="text" id="viewerRoomIdInput" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-indigo-500 outline-none" placeholder="Enter Host Room ID">
-        </div>
-
-        <div>
-          <label class="block text-xs font-mono text-slate-400 mb-1">PASSCODE</label>
-          <input type="password" id="viewerPasscodeInput" value="mycam" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white font-mono focus:border-indigo-500 outline-none" placeholder="mycam">
-        </div>
-
-        <div class="pt-2 flex flex-col gap-2">
-          <button onclick="connectAsViewer()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-bolt"></i> Connect Visual Stream
-          </button>
-          <button onclick="switchView('roleSelectionView')" class="w-full py-2 text-slate-400 hover:text-white text-xs">Back</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- VIEW 4: Active Streaming Studio -->
-    <div id="activeStreamView" class="hidden w-full flex flex-col items-center">
-      
-      <!-- Top Status & Action Bar -->
-      <div class="w-full flex flex-wrap items-center justify-between gap-2 mb-3 bg-slate-900/80 border border-slate-800 px-3.5 py-2.5 rounded-2xl">
-        <div class="flex items-center gap-2.5">
-          <span id="roleBadge" class="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider bg-cyan-950 text-cyan-400 border border-cyan-800">
-            HOST
-          </span>
-          <div class="text-xs">
-            <span class="text-slate-400 font-mono">ID:</span> <span id="currentRoomDisplay" class="font-mono font-bold text-white">...</span>
-          </div>
-        </div>
-
-        <!-- Connection Badges -->
-        <div class="flex items-center gap-3 text-xs">
-          <div class="flex items-center gap-1.5 font-mono">
-            <span id="streamStatusIndicator" class="w-2 h-2 rounded-full bg-yellow-400"></span>
-            <span id="streamStatusText" class="text-slate-300 text-[11px]">Connecting...</span>
-          </div>
-
-          <div id="viewerCountBadge" class="hidden items-center gap-1.5 bg-slate-800 px-2 py-0.5 rounded-lg text-slate-300 text-[11px] font-mono">
-            <i class="fa-solid fa-users text-[10px] text-cyan-400"></i>
-            <span id="viewerCountText">0</span>
-          </div>
-
-          <div id="resolutionBadge" class="hidden sm:block text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/40 text-[10px] font-mono">
-            -- x --
-          </div>
-        </div>
-
-        <!-- Right Quick Actions -->
-        <div class="flex items-center gap-2">
-          <!-- Force Reload Recovery Button -->
-          <button onclick="forceSyncPipeline()" title="Resync Video Feed" class="px-2.5 py-1.5 rounded-xl bg-amber-950/70 hover:bg-amber-900 text-amber-300 border border-amber-800/60 text-xs font-mono flex items-center gap-1.5 transition">
-            <i class="fa-solid fa-arrows-rotate text-[11px]" id="forceReloadIcon"></i> <span class="hidden sm:inline">Force Sync</span>
-          </button>
-          
-          <button id="pairingQrBtn" onclick="toggleShareModal(true)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-cyan-300 border border-slate-700 flex items-center gap-1.5">
-            <i class="fa-solid fa-qrcode"></i> <span class="hidden sm:inline">QR Share</span>
-          </button>
-          
-          <button onclick="disconnectSession()" class="px-2.5 py-1.5 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-800/60 text-xs flex items-center gap-1.5 transition">
-            <i class="fa-solid fa-power-off"></i> <span>Stop</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Main Video Canvas Stage -->
-      <div id="videoContainer" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
+      <!-- Host Configuration -->
+      <div id="hostSection">
+        <label>Passcode Protection</label>
+        <input type="text" id="hostPasscode" value="mycam" placeholder="Set room passcode">
         
-        <!-- Primary Hardware Accelerated Video Player -->
-        <video 
-          id="mainVideoPlayer" 
-          autoplay 
-          playsinline 
-          webkit-playsinline 
-          muted 
-          class="w-full h-full object-contain">
-        </video>
+        <button class="btn-primary" onclick="startBroadcasting()">Start Camera & Broadcast</button>
 
-        <!-- Secondary Canvas Blit Renderer Fallback (Eliminates mobile/Windows black screen bug) -->
-        <canvas id="fallbackCanvas" class="hidden absolute inset-0 w-full h-full object-contain pointer-events-none"></canvas>
-
-        <!-- Live Diagnostics HUD Overlay -->
-        <div id="diagnosticsHud" class="hidden absolute top-4 left-4 z-30 bg-slate-950/90 border border-cyan-500/40 rounded-xl p-3 text-[11px] font-hud text-cyan-300 backdrop-blur shadow-2xl max-w-xs pointer-events-none">
-          <div class="text-[10px] text-cyan-400 font-bold border-b border-cyan-900/60 pb-1 mb-1.5 flex items-center justify-between">
-            <span>WEBRTC STREAM MONITOR</span>
-            <span class="pulse-live inline-block w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+        <div id="hostShareArea" style="display:none; text-align: center; margin-top: 20px;">
+          <div id="qrBox"></div>
+          <p style="font-size: 0.8rem; color: var(--muted); margin-top: 6px;">
+            Scan with Viewer Android or share code:
+          </p>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <input type="text" id="shareRoomId" readonly style="margin:0; text-align:center; font-weight:700;">
+            <button class="btn-secondary" style="width:auto;" onclick="copyHostLink()">Copy</button>
           </div>
-          <div class="space-y-0.5">
-            <div>Video Tracks: <span id="hudVideoTracks" class="text-white">0</span></div>
-            <div>Video Status: <span id="hudVideoStatus" class="text-white">Inactive</span></div>
-            <div>Decoded Dims: <span id="hudDecodedDims" class="text-white">0 x 0</span></div>
-            <div>Audio Tracks: <span id="hudAudioTracks" class="text-white">0</span></div>
-            <div>Canvas Engine: <span id="hudCanvasStatus" class="text-white">Idle</span></div>
-            <div>Renderer Mode: <span id="hudActiveRenderer" class="text-amber-400">Native Video</span></div>
-          </div>
-        </div>
-
-        <!-- Top-Right Unmute Audio Button -->
-        <div id="unmutePromptBanner" class="hidden absolute top-4 right-4 z-30">
-          <button onclick="enableReceiverAudio()" class="px-3 py-1.5 bg-cyan-600/90 hover:bg-cyan-500 text-black rounded-xl text-xs font-bold backdrop-blur shadow-xl flex items-center gap-2 border border-cyan-300/40 animate-pulse">
-            <i class="fa-solid fa-volume-high"></i> Click to Unmute
-          </button>
-        </div>
-
-        <!-- Manual Play Overlay for Restricted Autoplay -->
-        <div id="manualPlayOverlay" class="absolute inset-0 bg-slate-950/90 backdrop-blur z-25 flex flex-col items-center justify-center p-6 text-center hidden">
-          <button onclick="forceStartPlayback()" class="w-16 h-16 rounded-full bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center text-xl shadow-xl shadow-cyan-500/30 mb-3 transition transform hover:scale-105">
-            <i class="fa-solid fa-play ml-1"></i>
-          </button>
-          <h3 class="text-base font-bold text-white">Browser Blocked Visual Feed</h3>
-          <p class="text-xs text-slate-400 mt-1 max-w-xs mb-3">Click play to permit visual rendering from the remote camera.</p>
-          <button onclick="forceStartPlayback()" class="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-xs text-cyan-300 font-mono">
-            Enable Video Output
-          </button>
-        </div>
-
-        <!-- Waiting Handshake Overlay -->
-        <div id="waitingOverlay" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-20 hidden">
-          <div class="w-14 h-14 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin mb-4"></div>
-          <h3 id="waitingTitle" class="text-base font-bold text-white mb-1">Awaiting Broadcaster Connection</h3>
-          <p id="waitingSub" class="text-xs text-slate-400 max-w-sm">Negotiating direct P2P STUN handshake...</p>
-        </div>
-
-        <!-- Live Watermark Overlay -->
-        <div class="absolute top-4 left-4 z-20 flex items-center gap-2 pointer-events-none">
-          <div id="liveBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-600/90 text-white text-[11px] font-bold tracking-wider uppercase backdrop-blur shadow">
-            <span class="w-2 h-2 rounded-full bg-white pulse-live"></span> LIVE
-          </div>
-          <div id="rendererIndicatorBadge" class="flex items-center gap-1 px-2 py-1 rounded-md bg-slate-900/80 text-cyan-400 text-[10px] backdrop-blur border border-slate-800 font-mono">
-            <i class="fa-solid fa-bolt text-[9px]"></i> <span id="rendererNameTag">GPU</span>
-          </div>
-        </div>
-
-        <!-- Floating Quick Controls Dock -->
-        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-slate-900/85 backdrop-blur-md px-3 py-2 rounded-2xl border border-slate-700/80 shadow-2xl">
-          
-          <!-- Host-only Controls: Flip camera -->
-          <button id="flipCamBtn" onclick="flipCamera()" title="Switch Front/Back Lens" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
-            <i class="fa-solid fa-camera-rotate"></i>
-          </button>
-          
-          <!-- Audio Toggle -->
-          <button id="toggleAudioBtn" onclick="toggleAudio()" title="Mute/Unmute Audio" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
-            <i class="fa-solid fa-volume-xmark text-rose-400" id="audioIcon"></i>
-          </button>
-
-          <!-- Snapshot Capture Tool -->
-          <button onclick="captureSnapshot()" title="Capture High-Res Photo" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 flex items-center justify-center transition">
-            <i class="fa-solid fa-camera"></i>
-          </button>
-
-          <!-- Fullscreen Toggle -->
-          <button onclick="toggleFullscreen()" title="Toggle Fullscreen" class="w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center justify-center transition">
-            <i class="fa-solid fa-expand"></i>
-          </button>
         </div>
       </div>
 
-      <!-- Quick Tips Bar -->
-      <div class="w-full mt-3 flex flex-wrap items-center justify-between text-xs text-slate-500 px-2 gap-2">
-        <div class="flex items-center gap-2">
-          <i class="fa-solid fa-shield-halved text-cyan-400"></i>
-          <span>Passcode verified via end-to-end DataChannel. Audio and visual packets never pass through intermediate servers.</span>
-        </div>
-        <div class="font-mono text-[11px] text-slate-500">
-          Renderer: Dual Pipeline (Native/2D-Blit)
-        </div>
-      </div>
-    </div>
-  </main>
+      <!-- Viewer Configuration -->
+      <div id="viewerSection" style="display: none;">
+        <label>Broadcaster Room ID</label>
+        <input type="text" id="targetRoomId" placeholder="Paste 6-digit ID or open scan link">
 
-  <!-- MODAL: Share QR Code & Pair Link -->
-  <div id="shareModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
-      <button onclick="toggleShareModal(false)" class="absolute top-4 right-4 text-slate-400 hover:text-white">
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
+        <label>Passcode</label>
+        <input type="password" id="joinPasscode" value="mycam" placeholder="Enter passcode">
 
-      <h3 class="text-base font-bold text-white mb-1 flex items-center gap-2">
-        <i class="fa-solid fa-qrcode text-cyan-400"></i> Scan to Receive Stream
-      </h3>
-      <p class="text-xs text-slate-400 mb-3">Scan from your laptop or second phone's camera.</p>
-
-      <div class="bg-white p-3 rounded-xl flex items-center justify-center mx-auto w-fit shadow-md">
-        <div id="qrcode"></div>
-      </div>
-
-      <div class="mt-4 space-y-2">
-        <label class="block text-[11px] font-mono text-slate-400">DIRECT JOIN LINK</label>
-        <div class="flex items-center gap-2">
-          <input type="text" id="shareUrlInput" readonly class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300 font-mono truncate select-all">
-          <button onclick="copyShareUrl()" class="px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-black font-bold rounded-xl text-xs shrink-0">
-            Copy
-          </button>
-        </div>
+        <button class="btn-blue" onclick="joinStream()">Connect to Camera</button>
       </div>
     </div>
   </div>
 
-  <a id="downloadAnchor" class="hidden"></a>
+  <!-- Screen 2: Fullscreen Live Video Stream -->
+  <div class="viewport" id="viewport">
+    <div class="floating-bar">
+      <div class="status-pill">
+        <span class="dot"></span>
+        <span id="statusText">Live</span>
+      </div>
+      <button class="btn-danger" style="padding: 6px 12px; font-size: 0.8rem;" onclick="stopAll()">Exit</button>
+    </div>
+
+    <!-- Receiver Unmute Banner for Android Chrome Autoplay policy -->
+    <div class="unmute-alert" id="unmuteBanner" onclick="unmuteAudio()">
+      🔊 Tap to Enable Audio
+    </div>
+
+    <!-- Active Stream Video Element -->
+    <video id="liveVideo" autoplay playsinline webkit-playsinline></video>
+
+    <!-- Bottom Controls -->
+    <div class="controls-bottom">
+      <button class="circle-btn" id="btnFlipCam" title="Switch Camera" onclick="toggleFacingCamera()">🔄</button>
+      <button class="circle-btn" id="btnSnap" title="Take Snapshot" onclick="captureSnapshot()">📸</button>
+      <button class="circle-btn" id="btnMute" title="Mute/Unmute" onclick="toggleMute()">🎙️</button>
+    </div>
+  </div>
+
+  <canvas id="snapshotCanvas" style="display:none;"></canvas>
 
   <script>
-    /* -------------------------------------------------------------
-       STATE MANAGEMENT & MULTI-STUN WEBRTC CONFIG
-    -------------------------------------------------------------- */
     let peer = null;
     let localStream = null;
-    let selfTestStream = null;
-    let remoteStreamRef = null;
+    let currentRole = 'host';
+    let currentFacingMode = 'environment'; // Default to rear camera on phones
     let activeCall = null;
-    let dataConnections = [];
-    let activeDataConnection = null;
-    let userRole = null; 
-    let currentRoomId = '';
-    let roomPasscode = 'mycam';
-    let currentFacingMode = 'user';
-    let isAudioMuted = true;
-    let qrcodeInstance = null;
-    let canvasAnimationId = null;
-    let isCanvasBlitterActive = false;
+    let authDataConnection = null;
 
-    const rtcConfig = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:global.stun.twilio.com:3478' }
-      ],
-      sdpSemantics: 'unified-plan'
-    };
-
-    function isDesktopOrWindows() {
-      const ua = navigator.userAgent;
-      return /Windows|Win64|Win32|Macintosh|Linux/i.test(ua) && !/Android|iPhone|iPad|iPod/i.test(ua);
-    }
-
-    function generateRandomRoomId() {
-      const randomId = 'cam-' + Math.random().toString(36).substring(2, 7);
-      document.getElementById('hostRoomIdInput').value = randomId;
-      return randomId;
-    }
-    document.getElementById('hostRoomIdInput').value = generateRandomRoomId();
-
+    // Parse URL query params (if viewer joins via QR code link)
     window.addEventListener('DOMContentLoaded', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const roomParam = urlParams.get('room');
-      const pwdParam = urlParams.get('pwd');
-      if (roomParam) {
-        document.getElementById('viewerRoomIdInput').value = roomParam;
-        if (pwdParam) {
-          document.getElementById('viewerPasscodeInput').value = pwdParam;
-        }
-        switchView('viewerSetupView');
+      const params = new URLSearchParams(window.location.search);
+      const joinId = params.get('join');
+      if (joinId) {
+        switchMode('viewer');
+        document.getElementById('targetRoomId').value = joinId;
       }
-      // Populate hardware list on load
-      refreshDeviceList();
     });
 
-    function switchView(viewId) {
-      ['roleSelectionView', 'hostSetupView', 'viewerSetupView', 'activeStreamView'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
-      document.getElementById(viewId).classList.remove('hidden');
-    }
-
-    function openHostSetup() {
-      switchView('hostSetupView');
-      refreshDeviceList();
-    }
-
-    function showToast(message, type = 'info') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      const colors = {
-        info: 'bg-slate-900 text-slate-200 border-slate-700',
-        success: 'bg-emerald-950 text-emerald-200 border-emerald-700',
-        error: 'bg-rose-950 text-rose-200 border-rose-700',
-        warn: 'bg-amber-950 text-amber-200 border-amber-700'
-      };
-      toast.className = `px-3.5 py-2.5 rounded-xl border text-xs shadow-xl flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 font-sans ${colors[type] || colors.info}`;
+    function switchMode(mode) {
+      currentRole = mode;
+      document.getElementById('hostSection').style.display = mode === 'host' ? 'block' : 'none';
+      document.getElementById('viewerSection').style.display = mode === 'viewer' ? 'block' : 'none';
       
-      let icon = 'fa-info-circle';
-      if (type === 'success') icon = 'fa-circle-check text-emerald-400';
-      if (type === 'error') icon = 'fa-triangle-exclamation text-rose-400';
-      if (type === 'warn') icon = 'fa-circle-exclamation text-amber-400';
-      
-      toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${message}</span>`;
-      container.appendChild(toast);
-
-      requestAnimationFrame(() => {
-        toast.classList.remove('translate-y-2', 'opacity-0');
-      });
-
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-2');
-        setTimeout(() => toast.remove(), 300);
-      }, 3500);
+      document.getElementById('btnModeHost').className = mode === 'host' ? 'btn-primary' : 'btn-secondary';
+      document.getElementById('btnModeViewer').className = mode === 'viewer' ? 'btn-blue' : 'btn-secondary';
     }
 
-    function updateStatus(state, message) {
-      const dot = document.getElementById('globalStatusDot');
-      const text = document.getElementById('globalStatusText');
-      const streamDot = document.getElementById('streamStatusIndicator');
-      const streamText = document.getElementById('streamStatusText');
-
-      const colorMap = {
-        ready: 'bg-slate-500',
-        connecting: 'bg-amber-400 animate-pulse',
-        live: 'bg-emerald-400',
-        error: 'bg-rose-500'
-      };
-
-      dot.className = `inline-block w-2 h-2 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
-      text.innerText = message;
-      if (streamDot && streamText) {
-        streamDot.className = `w-2 h-2 rounded-full ${colorMap[state] || 'bg-slate-500'}`;
-        streamText.innerText = message;
-      }
-    }
-
-    /* -------------------------------------------------------------
-       WINDOWS WEBCAM ENUMERATION & SPECIFIC ERROR DIAGNOSTICS
-    -------------------------------------------------------------- */
-    async function refreshDeviceList() {
-      const select = document.getElementById('hardwareDeviceSelect');
-      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-        showToast('Device enumeration not supported in this browser context (HTTPS required).', 'warn');
-        return;
-      }
+    // --- HOST LOGIC ---
+    async function startBroadcasting() {
+      const passcode = document.getElementById('hostPasscode').value.trim();
+      if (!passcode) return alert('Please set a passcode');
 
       try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoInputs = devices.filter(d => d.kind === 'videoinput');
-
-        select.innerHTML = '<option value="auto">Auto-detect default camera</option>';
-
-        if (videoInputs.length === 0) {
-          const opt = document.createElement('option');
-          opt.value = 'auto';
-          opt.text = 'No cameras identified yet (permissions needed)';
-          select.appendChild(opt);
-          return;
-        }
-
-        videoInputs.forEach((dev, index) => {
-          const opt = document.createElement('option');
-          opt.value = dev.deviceId;
-          // Filter out / tag IR sensors commonly present on Windows Hello laptops
-          const isIR = /IR|Infrared|Depth|Windows Hello/i.test(dev.label);
-          opt.text = (dev.label || `Camera ${index + 1}`) + (isIR ? ' (⚠️ Infrared/Sensor)' : '');
-          select.appendChild(opt);
+        // Request Android camera & audio with mobile-friendly constraints
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: currentFacingMode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: true
         });
 
-        console.log('Enumerated video devices:', videoInputs);
-      } catch (err) {
-        console.warn('Could not enumerate devices:', err);
-      }
-    }
+        const videoEl = document.getElementById('liveVideo');
+        videoEl.srcObject = localStream;
+        videoEl.muted = true; // Avoid feedback on host phone
+        showViewport("Host Camera (Ready)");
 
-    function displayHardwareError(error) {
-      const modal = document.getElementById('hardwareErrorModal');
-      const title = document.getElementById('hwErrorTitle');
-      const body = document.getElementById('hwErrorBody');
-
-      let explanation = '';
-      if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        title.innerText = 'Camera Locked by Windows App';
-        explanation = `
-          <p class="text-rose-400 font-bold mb-1">Error: NotReadableError (Hardware Exclusive Lock)</p>
-          <p>On Windows laptops, a webcam cannot be shared between multiple applications at the same time.</p>
-          <ul class="list-disc pl-4 space-y-1 mt-2 text-slate-300">
-            <li>Close <strong>Microsoft Teams, Zoom, Skype, Discord, OBS</strong> or the Windows Camera app.</li>
-            <li>If your laptop has a physical webcam privacy slider or shutter, open it.</li>
-            <li>Look for an F-key shortcut (e.g. Fn + F6 / F10) or hardware switch on Lenovo, ASUS, MSI, HP laptops.</li>
-          </ul>`;
-      } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        title.innerText = 'Blocked by Windows Privacy Settings';
-        explanation = `
-          <p class="text-rose-400 font-bold mb-1">Error: Permission Denied</p>
-          <p>Windows 10/11 is blocking browser access to the webcam:</p>
-          <ol class="list-decimal pl-4 space-y-1 mt-2 text-slate-300">
-            <li>Open Windows <strong>Settings > Privacy & security > Camera</strong>.</li>
-            <li>Ensure <em>'Camera access'</em> and <em>'Let desktop apps access your camera'</em> are both toggled <strong>ON</strong>.</li>
-            <li>In your browser address bar, click the camera lock icon and set Camera to <strong>Allow</strong>.</li>
-          </ol>`;
-      } else if (error.name === 'OverconstrainedError') {
-        title.innerText = 'Overconstrained Camera Request';
-        explanation = `
-          <p class="text-rose-400 font-bold mb-1">Error: OverconstrainedError</p>
-          <p>The selected resolution or mobile constraint is not supported by your laptop's camera driver.</p>
-          <p class="mt-2 text-slate-300">Switching the starting profile to '480p Safe' or selecting a different device in the hardware selector will bypass this.</p>`;
-      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        title.innerText = 'No Webcam Detected';
-        explanation = `
-          <p class="text-rose-400 font-bold mb-1">Error: NotFoundError</p>
-          <p>No compatible RGB webcam was detected on this PC. Check your Device Manager or plug in a USB webcam.</p>`;
-      } else {
-        title.innerText = 'Camera Initialization Failed';
-        explanation = `
-          <p class="text-rose-400 font-bold mb-1">Error: ${error.name || 'Unknown'}</p>
-          <p>${error.message || 'The webcam failed to start.'}</p>
-          <p class="mt-2 text-slate-300">Tip: Ensure your browser is running over HTTPS or localhost, which is required for camera streaming.</p>`;
-      }
-
-      body.innerHTML = explanation;
-      modal.classList.remove('hidden');
-    }
-
-    /* -------------------------------------------------------------
-       ADAPTIVE CAMERA CAPTURE (WINDOWS & MOBILE SAFE)
-    -------------------------------------------------------------- */
-    async function acquireCameraStream(preferredQuality, facing, selectedDeviceId) {
-      const isDesktop = isDesktopOrWindows();
-      const profiles = [];
-
-      // If user explicitly picked a deviceId, prioritize deviceId without facingMode
-      const hasSpecificDevice = selectedDeviceId && selectedDeviceId !== 'auto';
-
-      if (preferredQuality === '1080') {
-        profiles.push({ width: { ideal: 1920 }, height: { ideal: 1080 } });
-        profiles.push({ width: { ideal: 1280 }, height: { ideal: 720 } });
-      } else if (preferredQuality === '720') {
-        profiles.push({ width: { ideal: 1280 }, height: { ideal: 720 } });
-        profiles.push({ width: { ideal: 854 }, height: { ideal: 480 } });
-      } else {
-        profiles.push({ width: { ideal: 640 }, height: { ideal: 480 } });
-      }
-      profiles.push(true); // Raw basic fallback
-
-      let lastError = null;
-
-      for (let videoConstraint of profiles) {
-        try {
-          const videoOptions = {};
-
-          if (hasSpecificDevice) {
-            videoOptions.deviceId = { exact: selectedDeviceId };
-          } else if (!isDesktop) {
-            // Only apply mobile facingMode when on phones/tablets
-            videoOptions.facingMode = { ideal: facing };
+        // Initialize PeerJS
+        peer = new Peer(generateRoomId(), {
+          config: {
+            iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' }
+            ]
           }
+        });
 
-          if (typeof videoConstraint === 'object') {
-            Object.assign(videoOptions, videoConstraint);
-          }
+        peer.on('open', (id) => {
+          document.getElementById('hostShareArea').style.display = 'block';
+          document.getElementById('shareRoomId').value = id;
 
-          const constraints = {
-            audio: { echoCancellation: true, noiseSuppression: true },
-            video: Object.keys(videoOptions).length > 0 ? videoOptions : true
-          };
+          // Render QR Code for viewer
+          const shareUrl = `${window.location.origin}${window.location.pathname}?join=${id}`;
+          const qrBox = document.getElementById('qrBox');
+          qrBox.innerHTML = '';
+          new QRCode(qrBox, {
+            text: shareUrl,
+            width: 150,
+            height: 150,
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        });
 
-          console.log('Requesting UserMedia with constraints:', constraints);
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-
-          if (stream.getVideoTracks().length > 0) {
-            // Successfully acquired camera; refresh device labels with granted permissions
-            refreshDeviceList();
-            return stream;
-          }
-        } catch (err) {
-          lastError = err;
-          console.warn('Constraint attempt failed, stepping down...', err.name, err.message);
-        }
-      }
-
-      throw lastError || new Error('Could not initialize video track.');
-    }
-
-    /* -------------------------------------------------------------
-       LOCAL SELF-TEST LIVE PREVIEW
-    -------------------------------------------------------------- */
-    async function toggleLocalSelfTest() {
-      const video = document.getElementById('selfTestVideo');
-      const placeholder = document.getElementById('selfTestPlaceholder');
-      const btnText = document.getElementById('testCamBtnText');
-
-      if (selfTestStream) {
-        stopSelfTest();
-        return;
-      }
-
-      btnText.innerText = 'Connecting...';
-      const selectedDevice = document.getElementById('hardwareDeviceSelect').value;
-      const quality = document.getElementById('hostQualitySelect').value;
-      const facing = document.getElementById('hostCameraFacingSelect').value;
-
-      try {
-        selfTestStream = await acquireCameraStream(quality, facing, selectedDevice);
-        video.srcObject = selfTestStream;
-        video.classList.remove('hidden');
-        placeholder.classList.add('hidden');
-        await video.play();
-        btnText.innerText = 'Stop Test';
-        showToast('Webcam working! Visual preview confirmed.', 'success');
-      } catch (err) {
-        stopSelfTest();
-        displayHardwareError(err);
-      }
-    }
-
-    function stopSelfTest() {
-      if (selfTestStream) {
-        selfTestStream.getTracks().forEach(t => t.stop());
-        selfTestStream = null;
-      }
-      const video = document.getElementById('selfTestVideo');
-      const placeholder = document.getElementById('selfTestPlaceholder');
-      const btnText = document.getElementById('testCamBtnText');
-      if (video) {
-        video.srcObject = null;
-        video.classList.add('hidden');
-      }
-      if (placeholder) placeholder.classList.remove('hidden');
-      if (btnText) btnText.innerText = 'Test Webcam Now';
-    }
-
-    /* -------------------------------------------------------------
-       HOST BROADCASTER LOGIC
-    -------------------------------------------------------------- */
-    async function startHostStream() {
-      stopSelfTest();
-
-      const roomInput = document.getElementById('hostRoomIdInput').value.trim();
-      const pwdInput = document.getElementById('hostPasscodeInput').value.trim();
-      const quality = document.getElementById('hostQualitySelect').value;
-      const selectedDevice = document.getElementById('hardwareDeviceSelect').value;
-      currentFacingMode = document.getElementById('hostCameraFacingSelect').value;
-
-      if (!roomInput) return showToast('Please enter a room name', 'error');
-      if (!pwdInput) return showToast('Please enter a passcode', 'error');
-
-      currentRoomId = roomInput;
-      roomPasscode = pwdInput;
-      userRole = 'HOST';
-
-      updateStatus('connecting', 'Acquiring camera...');
-
-      try {
-        localStream = await acquireCameraStream(quality, currentFacingMode, selectedDevice);
-        
-        const videoPlayer = document.getElementById('mainVideoPlayer');
-        videoPlayer.muted = true;
-        videoPlayer.srcObject = localStream;
-        
-        if (currentFacingMode === 'user' || isDesktopOrWindows()) {
-          videoPlayer.classList.add('mirror-mode');
-        } else {
-          videoPlayer.classList.remove('mirror-mode');
-        }
-
-        await videoPlayer.play();
-
-        setupActiveView('HOST');
-        buildShareDetails();
-        initHostPeer(currentRoomId);
-
-        startDiagnosticsLoop();
-      } catch (err) {
-        console.error('Camera acquisition error:', err);
-        displayHardwareError(err);
-        updateStatus('error', 'Camera failed');
-      }
-    }
-
-    function initHostPeer(roomId) {
-      updateStatus('connecting', 'Registering P2P ID...');
-      const peerId = `peercam-${roomId}`;
-
-      peer = new Peer(peerId, {
-        debug: 1,
-        config: rtcConfig
-      });
-
-      peer.on('open', () => {
-        updateStatus('live', 'Broadcaster Live');
-        showToast('Broadcasting live visual stream!', 'success');
-        document.getElementById('waitingOverlay').classList.add('hidden');
-        updateResolutionBadge();
-      });
-
-      peer.on('error', (err) => {
-        console.error('Host peer error:', err);
-        if (err.type === 'unavailable-id') {
-          showToast(`Room '${roomId}' already taken. Choose another.`, 'error');
-          disconnectSession();
-        } else {
-          showToast('Network notice: ' + err.message, 'warn');
-        }
-      });
-
-      peer.on('connection', (conn) => {
-        conn.on('data', (data) => {
-          if (data && data.type === 'AUTH_REQUEST') {
-            if (data.passcode === roomPasscode) {
-              conn.send({ type: 'AUTH_SUCCESS' });
-              dataConnections.push(conn);
-              updateViewerCount();
-              showToast('Viewer joined securely', 'info');
-            } else {
-              conn.send({ type: 'AUTH_FAILED' });
-              setTimeout(() => conn.close(), 1000);
-              showToast('Viewer rejected: Incorrect passcode', 'warn');
+        // 1. Listen for incoming viewer authorization requests
+        peer.on('connection', (conn) => {
+          conn.on('data', (data) => {
+            if (data.type === 'auth') {
+              if (data.passcode === passcode) {
+                conn.send({ type: 'auth-success' });
+              } else {
+                conn.send({ type: 'auth-failed', reason: 'Incorrect passcode' });
+              }
             }
-          }
+          });
         });
 
-        conn.on('close', () => {
-          dataConnections = dataConnections.filter(c => c !== conn);
-          updateViewerCount();
+        // 2. Answer incoming media call once authenticated
+        peer.on('call', (call) => {
+          activeCall = call;
+          call.answer(localStream);
+          document.getElementById('statusText').innerText = "Streaming to Viewer";
         });
-      });
 
-      peer.on('call', (call) => {
-        call.answer(localStream);
-      });
-    }
-
-    function updateViewerCount() {
-      const badge = document.getElementById('viewerCountBadge');
-      const text = document.getElementById('viewerCountText');
-      if (userRole === 'HOST') {
-        badge.classList.remove('hidden');
-        badge.classList.add('flex');
-        const count = dataConnections.length;
-        text.innerText = `${count} viewer${count === 1 ? '' : 's'}`;
+      } catch (err) {
+        alert("Camera access denied or failed: " + err.message);
       }
     }
 
-    /* -------------------------------------------------------------
-       RECEIVER / VIEWER LOGIC (WITH COMPREHENSIVE VISUAL SYNC)
-    -------------------------------------------------------------- */
-    function connectAsViewer() {
-      const roomInput = document.getElementById('viewerRoomIdInput').value.trim();
-      const pwdInput = document.getElementById('viewerPasscodeInput').value.trim();
+    // --- VIEWER LOGIC ---
+    function joinStream() {
+      const roomId = document.getElementById('targetRoomId').value.trim();
+      const passcode = document.getElementById('joinPasscode').value.trim();
 
-      if (!roomInput) return showToast('Please enter Host Room ID', 'error');
+      if (!roomId) return alert('Please enter Broadcaster Room ID');
 
-      currentRoomId = roomInput;
-      roomPasscode = pwdInput;
-      userRole = 'VIEWER';
-
-      setupActiveView('VIEWER');
-      document.getElementById('waitingOverlay').classList.remove('hidden');
-      document.getElementById('waitingTitle').innerText = 'Contacting Broadcaster...';
-      document.getElementById('waitingSub').innerText = 'Authenticating passcode & opening WebRTC pipeline...';
-
-      updateStatus('connecting', 'Connecting...');
-
+      // Initialize Viewer Peer
       peer = new Peer({
-        debug: 1,
-        config: rtcConfig
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        }
       });
 
       peer.on('open', () => {
-        const hostPeerId = `peercam-${currentRoomId}`;
-        activeDataConnection = peer.connect(hostPeerId, { reliable: true });
+        // Authenticate via Data Connection first
+        authDataConnection = peer.connect(roomId);
 
-        activeDataConnection.on('open', () => {
-          activeDataConnection.send({
-            type: 'AUTH_REQUEST',
-            passcode: roomPasscode
-          });
+        authDataConnection.on('open', () => {
+          authDataConnection.send({ type: 'auth', passcode: passcode });
         });
 
-        activeDataConnection.on('data', (data) => {
-          if (data.type === 'AUTH_SUCCESS') {
-            showToast('Passcode authenticated! Requesting video track...', 'success');
+        authDataConnection.on('data', (data) => {
+          if (data.type === 'auth-success') {
+            // Initiate media call to receive stream
+            // Create dummy audio track to satisfy WebRTC answer handshake from receiver
+            const dummyAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const dst = dummyAudioCtx.createMediaStreamDestination();
             
-            const dummyCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = dummyCtx.createOscillator();
-            const dst = dummyCtx.createMediaStreamDestination();
-            osc.connect(dst);
-            osc.start();
+            const call = peer.call(roomId, dst.stream);
+            activeCall = call;
 
-            activeCall = peer.call(hostPeerId, dst.stream);
-
-            activeCall.on('stream', (incomingStream) => {
-              console.log('Incoming stream via call.on("stream")', incomingStream.getTracks());
-              remoteStreamRef = incomingStream;
-              bindStreamToReceiver(incomingStream);
+            call.on('stream', (remoteStream) => {
+              const videoEl = document.getElementById('liveVideo');
+              videoEl.srcObject = remoteStream;
+              
+              // Android Chrome policy: Start muted to ensure instant visual decoding
+              videoEl.muted = true;
+              videoEl.play().then(() => {
+                showViewport("Connected - Live Feed");
+                // Reveal Unmute button for audio
+                document.getElementById('unmuteBanner').style.display = 'block';
+              }).catch(err => {
+                console.warn("Autoplay block:", err);
+                showViewport("Tap Screen to Play");
+              });
             });
 
-            if (activeCall.peerConnection) {
-              activeCall.peerConnection.ontrack = (event) => {
-                console.log('Native ontrack event caught:', event.track.kind);
-                if (event.streams && event.streams[0]) {
-                  remoteStreamRef = event.streams[0];
-                  bindStreamToReceiver(event.streams[0]);
-                }
-              };
-            }
-
-            activeCall.on('close', () => {
-              showToast('Broadcaster stopped transmission', 'warn');
-              updateStatus('ready', 'Stream ended');
-              stopCanvasBlitter();
-              document.getElementById('waitingOverlay').classList.remove('hidden');
-              document.getElementById('waitingTitle').innerText = 'Broadcast Terminated';
-              document.getElementById('waitingSub').innerText = 'The camera device has disconnected.';
+            call.on('close', () => {
+              alert("Broadcaster ended the stream.");
+              stopAll();
             });
 
-          } else if (data.type === 'AUTH_FAILED') {
-            showToast('Passcode verification failed!', 'error');
-            updateStatus('error', 'Wrong passcode');
-            document.getElementById('waitingOverlay').classList.remove('hidden');
-            document.getElementById('waitingTitle').innerText = 'Passcode Rejected';
-            document.getElementById('waitingSub').innerText = 'Please check the room passcode and try again.';
+          } else if (data.type === 'auth-failed') {
+            alert("Passcode rejected: " + data.reason);
+            peer.destroy();
           }
-        });
-
-        activeDataConnection.on('error', (err) => {
-          showToast('Data channel notice: ' + err.message, 'error');
         });
       });
 
       peer.on('error', (err) => {
-        if (err.type === 'peer-unavailable') {
-          showToast(`Host '${currentRoomId}' not found. Verify camera host is online.`, 'error');
-          document.getElementById('waitingOverlay').classList.remove('hidden');
-          document.getElementById('waitingTitle').innerText = 'Broadcaster Unavailable';
-          document.getElementById('waitingSub').innerText = 'Could not find active broadcaster for ' + currentRoomId;
-        } else {
-          showToast('Network error: ' + err.message, 'error');
-        }
-        updateStatus('error', 'Connection error');
-      });
-
-      startDiagnosticsLoop();
-    }
-
-    /* -------------------------------------------------------------
-       DUAL-RENDERER: HTML5 VIDEO + CANVAS BLIT FALLBACK ENGINE
-    -------------------------------------------------------------- */
-    function bindStreamToReceiver(stream) {
-      const videoPlayer = document.getElementById('mainVideoPlayer');
-      const waitingOverlay = document.getElementById('waitingOverlay');
-      const unmuteBanner = document.getElementById('unmutePromptBanner');
-
-      stream.onaddtrack = (e) => {
-        console.log('Stream track added asynchronously:', e.track.kind);
-        if (videoPlayer.srcObject !== stream) {
-          videoPlayer.srcObject = stream;
-        }
-      };
-
-      videoPlayer.muted = true;
-      videoPlayer.srcObject = stream;
-
-      const attemptPlay = () => {
-        videoPlayer.play().then(() => {
-          waitingOverlay.classList.add('hidden');
-          document.getElementById('manualPlayOverlay').classList.add('hidden');
-          updateStatus('live', 'Visual Feed Active');
-          updateResolutionBadge();
-
-          if (stream.getAudioTracks().length > 0) {
-            unmuteBanner.classList.remove('hidden');
-          }
-
-          setupDualRendererWatchdog();
-        }).catch((err) => {
-          console.warn('Direct autoplay prevented by policy:', err);
-          waitingOverlay.classList.add('hidden');
-          document.getElementById('manualPlayOverlay').classList.remove('hidden');
-        });
-      };
-
-      if (videoPlayer.readyState >= 1) {
-        attemptPlay();
-      } else {
-        videoPlayer.onloadedmetadata = () => attemptPlay();
-      }
-    }
-
-    function setupDualRendererWatchdog() {
-      const videoPlayer = document.getElementById('mainVideoPlayer');
-      const canvas = document.getElementById('fallbackCanvas');
-
-      let checkCount = 0;
-      const watchdogTimer = setInterval(() => {
-        checkCount++;
-        if (videoPlayer.videoWidth > 0 && videoPlayer.videoHeight > 0) {
-          clearInterval(watchdogTimer);
-          startCanvasBlitter();
-        } else if (checkCount > 10) {
-          clearInterval(watchdogTimer);
-          startCanvasBlitter();
-        }
-      }, 400);
-    }
-
-    function startCanvasBlitter() {
-      if (isCanvasBlitterActive) return;
-      const videoPlayer = document.getElementById('mainVideoPlayer');
-      const canvas = document.getElementById('fallbackCanvas');
-      const ctx = canvas.getContext('2d', { alpha: false });
-      
-      isCanvasBlitterActive = true;
-      document.getElementById('hudCanvasStatus').innerText = 'Active (60FPS)';
-
-      function renderFrame() {
-        if (!isCanvasBlitterActive) return;
-
-        if (videoPlayer.readyState >= 2 && videoPlayer.videoWidth > 0) {
-          if (canvas.width !== videoPlayer.videoWidth || canvas.height !== videoPlayer.videoHeight) {
-            canvas.width = videoPlayer.videoWidth;
-            canvas.height = videoPlayer.videoHeight;
-          }
-
-          ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
-
-          if (canvas.classList.contains('hidden')) {
-            canvas.classList.remove('hidden');
-            document.getElementById('rendererNameTag').innerText = 'CANVAS-2D';
-            document.getElementById('hudActiveRenderer').innerText = '2D Blit Engine';
-          }
-        }
-        canvasAnimationId = requestAnimationFrame(renderFrame);
-      }
-      renderFrame();
-    }
-
-    function stopCanvasBlitter() {
-      isCanvasBlitterActive = false;
-      if (canvasAnimationId) cancelAnimationFrame(canvasAnimationId);
-      document.getElementById('fallbackCanvas').classList.add('hidden');
-      document.getElementById('rendererNameTag').innerText = 'GPU';
-      document.getElementById('hudCanvasStatus').innerText = 'Idle';
-      document.getElementById('hudActiveRenderer').innerText = 'Native Video';
-    }
-
-    function forceSyncPipeline() {
-      const icon = document.getElementById('forceReloadIcon');
-      icon.classList.add('animate-spin');
-      showToast('Resyncing visual pipeline...', 'info');
-
-      const videoPlayer = document.getElementById('mainVideoPlayer');
-      const targetStream = userRole === 'HOST' ? localStream : remoteStreamRef;
-
-      if (targetStream) {
-        videoPlayer.srcObject = null;
-        setTimeout(() => {
-          videoPlayer.srcObject = targetStream;
-          videoPlayer.play().then(() => {
-            startCanvasBlitter();
-            showToast('Video pipeline reloaded!', 'success');
-            icon.classList.remove('animate-spin');
-          }).catch(err => {
-            icon.classList.remove('animate-spin');
-            showToast('Reload notice: ' + err.message, 'warn');
-          });
-        }, 200);
-      } else {
-        icon.classList.remove('animate-spin');
-        showToast('No active stream to resync', 'warn');
-      }
-    }
-
-    function forceStartPlayback() {
-      const videoPlayer = document.getElementById('mainVideoPlayer');
-      videoPlayer.play().then(() => {
-        document.getElementById('manualPlayOverlay').classList.add('hidden');
-        document.getElementById('waitingOverlay').classList.add('hidden');
-        startCanvasBlitter();
-        updateStatus('live', 'Live Feed Active');
-        updateResolutionBadge();
-      }).catch(err => {
-        showToast('Playback error: ' + err.message, 'error');
+        alert("Connection error: " + err.type);
       });
     }
 
-    function enableReceiverAudio() {
-      const videoPlayer = document.getElementById('mainVideoPlayer');
-      videoPlayer.muted = false;
-      isAudioMuted = false;
-      document.getElementById('unmutePromptBanner').classList.add('hidden');
-      document.getElementById('audioIcon').className = 'fa-solid fa-volume-high text-cyan-400';
-      showToast('Audio unmuted', 'success');
+    // --- UTILITIES & HARDWARE CONTROLS ---
+
+    function unmuteAudio() {
+      const videoEl = document.getElementById('liveVideo');
+      videoEl.muted = false;
+      document.getElementById('unmuteBanner').style.display = 'none';
     }
 
-    /* -------------------------------------------------------------
-       DIAGNOSTICS HUD ENGINE
-    -------------------------------------------------------------- */
-    function toggleDiagnosticsHud() {
-      const hud = document.getElementById('diagnosticsHud');
-      hud.classList.toggle('hidden');
+    function toggleMute() {
+      if (localStream) {
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack) {
+          audioTrack.enabled = !audioTrack.enabled;
+          document.getElementById('btnMute').innerText = audioTrack.enabled ? '🎙️' : '🔇';
+        }
+      } else {
+        const videoEl = document.getElementById('liveVideo');
+        videoEl.muted = !videoEl.muted;
+        document.getElementById('btnMute').innerText = videoEl.muted ? '🔇' : '🔊';
+      }
     }
 
-    function startDiagnosticsLoop() {
-      document.getElementById('toggleHudBtn').classList.remove('hidden');
+    async function toggleFacingCamera() {
+      if (currentRole !== 'host' || !localStream) return;
       
-      setInterval(() => {
-        const stream = userRole === 'HOST' ? localStream : remoteStreamRef;
-        const videoPlayer = document.getElementById('mainVideoPlayer');
-
-        if (stream) {
-          const vTracks = stream.getVideoTracks();
-          const aTracks = stream.getAudioTracks();
-
-          document.getElementById('hudVideoTracks').innerText = `${vTracks.length} (${vTracks.map(t => t.readyState).join(',') || 'none'})`;
-          document.getElementById('hudAudioTracks').innerText = `${aTracks.length} (${aTracks.map(t => t.readyState).join(',') || 'none'})`;
-          
-          if (vTracks.length > 0) {
-            const track = vTracks[0];
-            document.getElementById('hudVideoStatus').innerText = `${track.enabled ? 'Enabled' : 'Muted'} / ${track.readyState}`;
-          } else {
-            document.getElementById('hudVideoStatus').innerText = 'None Available';
-          }
-        }
-
-        if (videoPlayer) {
-          document.getElementById('hudDecodedDims').innerText = `${videoPlayer.videoWidth} x ${videoPlayer.videoHeight}`;
-        }
-      }, 800);
-    }
-
-    /* -------------------------------------------------------------
-       CAMERA & HARDWARE CONTROLS
-    -------------------------------------------------------------- */
-    async function flipCamera() {
-      if (userRole !== 'HOST' || !localStream) return;
-      currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
-      showToast('Switching camera...', 'info');
-
+      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      
+      // Stop old video track
       localStream.getVideoTracks().forEach(t => t.stop());
 
       try {
-        const selectedDevice = document.getElementById('hardwareDeviceSelect').value;
-        const newStream = await acquireCameraStream(
-          document.getElementById('hostQualitySelect').value,
-          currentFacingMode,
-          selectedDevice
-        );
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: currentFacingMode } },
+          audio: true
+        });
 
         const newVideoTrack = newStream.getVideoTracks()[0];
-        const videoPlayer = document.getElementById('mainVideoPlayer');
-        
-        const oldTrack = localStream.getVideoTracks()[0];
-        localStream.removeTrack(oldTrack);
+        localStream.removeTrack(localStream.getVideoTracks()[0]);
         localStream.addTrack(newVideoTrack);
-        videoPlayer.srcObject = localStream;
 
-        if (currentFacingMode === 'user' || isDesktopOrWindows()) {
-          videoPlayer.classList.add('mirror-mode');
-        } else {
-          videoPlayer.classList.remove('mirror-mode');
-        }
+        document.getElementById('liveVideo').srcObject = localStream;
 
-        if (peer && peer.connections) {
-          Object.values(peer.connections).forEach(connectionGroup => {
-            connectionGroup.forEach(c => {
-              if (c.peerConnection) {
-                const sender = c.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-                if (sender) sender.replaceTrack(newVideoTrack);
-              }
-            });
-          });
+        // Replace track on the fly for active peer connection
+        if (activeCall && activeCall.peerConnection) {
+          const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+          if (sender) sender.replaceTrack(newVideoTrack);
         }
-        showToast('Camera switched', 'success');
       } catch (err) {
-        displayHardwareError(err);
-      }
-    }
-
-    function toggleAudio() {
-      const videoPlayer = document.getElementById('mainVideoPlayer');
-      const icon = document.getElementById('audioIcon');
-
-      if (userRole === 'HOST' && localStream) {
-        const audioTracks = localStream.getAudioTracks();
-        if (audioTracks.length > 0) {
-          const enabled = !audioTracks[0].enabled;
-          audioTracks[0].enabled = enabled;
-          icon.className = enabled ? 'fa-solid fa-microphone text-cyan-400' : 'fa-solid fa-microphone-slash text-rose-400';
-          showToast(enabled ? 'Microphone live' : 'Microphone muted', 'info');
-        }
-      } else {
-        videoPlayer.muted = !videoPlayer.muted;
-        icon.className = !videoPlayer.muted ? 'fa-solid fa-volume-high text-cyan-400' : 'fa-solid fa-volume-xmark text-rose-400';
-        document.getElementById('unmutePromptBanner').classList.add('hidden');
-        showToast(videoPlayer.muted ? 'Audio muted' : 'Audio playing', 'info');
+        alert("Failed to flip camera: " + err.message);
       }
     }
 
     function captureSnapshot() {
-      const video = document.getElementById('mainVideoPlayer');
-      const canvasElem = document.getElementById('fallbackCanvas');
+      const videoEl = document.getElementById('liveVideo');
+      const canvas = document.getElementById('snapshotCanvas');
+      if (!videoEl.videoWidth) return alert("Stream not rendering visual frames yet.");
 
-      const width = video.videoWidth || canvasElem.width;
-      const height = video.videoHeight || canvasElem.height;
-
-      if (!width || !height) {
-        showToast('No active visual frame to capture', 'warn');
-        return;
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = videoEl.videoWidth;
+      canvas.height = videoEl.videoHeight;
       const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
 
-      if (video.classList.contains('mirror-mode')) {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-      }
-
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
-      const link = document.getElementById('downloadAnchor');
-      link.href = dataUrl;
-      link.download = `peercam-${Date.now()}.jpg`;
-      link.click();
-      showToast('Visual frame saved to disk', 'success');
+      const a = document.createElement('a');
+      a.download = `p2p-snap-${Date.now()}.jpg`;
+      a.href = canvas.toDataURL('image/jpeg', 0.95);
+      a.click();
     }
 
-    function toggleFullscreen() {
-      const elem = document.getElementById('videoContainer');
-      if (!document.fullscreenElement) {
-        elem.requestFullscreen().catch(err => {
-          showToast('Fullscreen error: ' + err.message, 'error');
-        });
-      } else {
-        document.exitFullscreen();
-      }
-    }
-
-    /* -------------------------------------------------------------
-       UI HELPERS & MODALS
-    -------------------------------------------------------------- */
-    function setupActiveView(role) {
-      switchView('activeStreamView');
-      document.getElementById('currentRoomDisplay').innerText = currentRoomId;
-      const roleBadge = document.getElementById('roleBadge');
-      const audioIcon = document.getElementById('audioIcon');
+    function showViewport(status) {
+      document.getElementById('setupCard').style.display = 'none';
+      document.getElementById('viewport').style.display = 'flex';
+      document.getElementById('statusText').innerText = status;
       
-      if (role === 'HOST') {
-        roleBadge.innerText = 'BROADCASTER';
-        roleBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider bg-cyan-950 text-cyan-400 border border-cyan-800';
-        document.getElementById('flipCamBtn').classList.remove('hidden');
-        document.getElementById('pairingQrBtn').classList.remove('hidden');
-        audioIcon.className = 'fa-solid fa-microphone text-cyan-400';
-      } else {
-        roleBadge.innerText = 'RECEIVER';
-        roleBadge.className = 'px-2.5 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase tracking-wider bg-indigo-950 text-indigo-400 border border-indigo-800';
-        document.getElementById('flipCamBtn').classList.add('hidden');
-        document.getElementById('pairingQrBtn').classList.add('hidden');
-        document.getElementById('viewerCountBadge').classList.add('hidden');
-        audioIcon.className = 'fa-solid fa-volume-xmark text-rose-400';
-      }
+      // Hide camera flip button on viewer device
+      document.getElementById('btnFlipCam').style.display = currentRole === 'host' ? 'flex' : 'none';
     }
 
-    function buildShareDetails() {
-      const baseUrl = window.location.origin + window.location.pathname;
-      const joinUrl = `${baseUrl}?room=${encodeURIComponent(currentRoomId)}&pwd=${encodeURIComponent(roomPasscode)}`;
-      document.getElementById('shareUrlInput').value = joinUrl;
-
-      const qrTarget = document.getElementById('qrcode');
-      qrTarget.innerHTML = '';
-      qrcodeInstance = new QRCode(qrTarget, {
-        text: joinUrl,
-        width: 170,
-        height: 170,
-        colorDark: "#020617",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
-      });
-    }
-
-    function toggleShareModal(show) {
-      document.getElementById('shareModal').classList.toggle('hidden', !show);
-    }
-
-    function copyShareUrl() {
-      const copyText = document.getElementById('shareUrlInput');
-      copyText.select();
-      copyText.setSelectionRange(0, 99999);
-      try {
-        document.execCommand('copy');
-        showToast('Direct pairing URL copied!', 'success');
-      } catch (err) {
-        showToast('Unable to copy automatically', 'warn');
-      }
-    }
-
-    function updateResolutionBadge() {
-      const video = document.getElementById('mainVideoPlayer');
-      const badge = document.getElementById('resolutionBadge');
-      const interval = setInterval(() => {
-        if (video.videoWidth > 0) {
-          badge.innerText = `${video.videoWidth} x ${video.videoHeight}`;
-          badge.classList.remove('hidden');
-          clearInterval(interval);
-        }
-      }, 400);
-    }
-
-    function disconnectSession() {
-      stopCanvasBlitter();
-      stopSelfTest();
-      
+    function stopAll() {
       if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
-        localStream = null;
+        localStream.getTracks().forEach(track => track.stop());
       }
-      if (activeCall) {
-        activeCall.close();
-        activeCall = null;
-      }
-      if (activeDataConnection) {
-        activeDataConnection.close();
-        activeDataConnection = null;
-      }
-      dataConnections.forEach(c => c.close());
-      dataConnections = [];
-
       if (peer) {
         peer.destroy();
-        peer = null;
       }
-
-      const video = document.getElementById('mainVideoPlayer');
-      video.srcObject = null;
-      video.classList.remove('mirror-mode');
-
-      document.getElementById('unmutePromptBanner').classList.add('hidden');
-      document.getElementById('manualPlayOverlay').classList.add('hidden');
-      document.getElementById('diagnosticsHud').classList.add('hidden');
-      document.getElementById('toggleHudBtn').classList.add('hidden');
-
-      updateStatus('ready', 'Ready');
-      switchView('roleSelectionView');
-      showToast('Session ended', 'info');
+      window.location.href = window.location.pathname; // Clean reset
     }
 
-    function resetApp() {
-      if (peer) disconnectSession();
-      else switchView('roleSelectionView');
+    function generateRoomId() {
+      return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    function copyHostLink() {
+      const code = document.getElementById('shareRoomId').value;
+      const fullUrl = `${window.location.origin}${window.location.pathname}?join=${code}`;
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        alert("Viewer invite link copied to clipboard!");
+      });
     }
   </script>
 </body>
